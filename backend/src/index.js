@@ -3,10 +3,18 @@ const cors = require('cors');
 require('dotenv').config();
 const sequelize = require('./config/database');
 
+// Import routes
+const adminRoutes = require('./routes/adminRoutes');
+const managerRoutes = require('./routes/managerRoutes');
+const userRoutes = require('./routes/userRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
+
 // Import models
-require('./models/user.model');
-require('./models/field.model');
-require('./models/booking.model');
+require('./models/User');
+require('./models/Field');
+require('./models/Booking');
+require('./models/Payment');
+require('./models/Review');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -16,8 +24,19 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use('/api/admin', adminRoutes);
+app.use('/api/manager', managerRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/bookings', bookingRoutes);
+
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to Soccer Field Management API' });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
 });
 
 // Database sync and server start
