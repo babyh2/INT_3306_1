@@ -1,5 +1,3 @@
-const Booking = require('../models/Booking');
-const Field = require('../models/Field');
-const Payment = require('../models/Payment');
 
-// Payment controller methods here
+// Create payment intents, webhooks
+export const ping = (req, res) => res.json({ ok: true, from: "paymentController.js" });

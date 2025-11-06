@@ -1,5 +1,3 @@
-const User = require('../models/User');
-const Field = require('../models/Field');
-const Booking = require('../models/Booking');
 
-// Manager controller methods here
+// Confirm/cancel bookings, update fields, revenue
+export const ping = (req, res) => res.json({ ok: true, from: "managerController.js" });

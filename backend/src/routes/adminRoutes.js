@@ -1,9 +1,8 @@
-const express = require('express');
-const router = express.Router();
-const adminController = require('../controllers/adminController');
-const authMiddleware = require('../middleware/authMiddleware');
-const roleMiddleware = require('../middleware/roleMiddleware');
 
-// Admin routes here
-
-module.exports = router;
+import { Router } from "express";
+import { ping } from "../controllers/adminController.js";
+import { requireAuth, } from "../middleware/authMiddleware.js";
+import { requireRole } from "../middleware/roleMiddleware.js";
+const r = Router();
+r.get("/ping", requireAuth, requireRole("admin"), ping);
+export default r;

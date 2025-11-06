@@ -1,5 +1,3 @@
-const User = require('../models/User');
-const Field = require('../models/Field');
-const Booking = require('../models/Booking');
 
-// Admin controller methods here
+// CRUD for users, staffs, fields, reports
+export const ping = (req, res) => res.json({ ok: true, from: "adminController.js" });
