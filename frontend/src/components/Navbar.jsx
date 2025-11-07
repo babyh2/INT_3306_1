@@ -1,15 +1,31 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import './Navbar.css'
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [user, setUser] = useState(null)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    // Kiểm tra user đã đăng nhập chưa
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
+    }
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('user')
+    setUser(null)
+    navigate('/')
+  }
 
   return (
     <nav className="navbar">
       <div className="navbar-container">
         <Link to="/" className="navbar-logo">
-          <img src="/logo.png" alt="DHP Logo" />
+          <img src="/images/logo/logo.png" alt="DHP Logo" />
         </Link>
 
         <ul className={`navbar-menu ${isMenuOpen ? 'active' : ''}`}>
@@ -18,14 +34,23 @@ export default function Navbar() {
           <li><Link to="/user/booking">Đặt lịch</Link></li>
           <li><Link to="/user/bookings">Chính sách</Link></li>
           <li><Link to="/user/review">Đánh giá</Link></li>
-          <li><Link to="/user/payment">Thanh toán đơn đặt sân</Link></li>
           <li><Link to="/user/support">Liên hệ</Link></li>
         </ul>
 
         <div className="navbar-actions">
-          <Link to="/user/login" className="navbar-link">Đăng ký</Link>
-          <Link to="/user/register" className="navbar-link">Đăng nhập</Link>
-          <Link to="/user/profile" className="navbar-link">Tìm kiếm</Link>
+          {user ? (
+            <>
+              <span className="navbar-user">Xin chào, {user.name || user.email}</span>
+              <button onClick={handleLogout} className="navbar-btn logout-btn">
+                Đăng xuất
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/user/login" className="navbar-btn login-btn">Đăng nhập</Link>
+              <Link to="/user/register" className="navbar-btn register-btn">Đăng ký</Link>
+            </>
+          )}
         </div>
 
         <button 

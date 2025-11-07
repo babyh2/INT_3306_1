@@ -7,7 +7,7 @@
 .hero-section {
   position: relative;
   height: 500px;
-  background-image: url('/hero-bg.jpg');
+  background-image: url('/images/hero/hero-bg.svg');
   background-size: cover;
   background-position: center;
   display: flex;

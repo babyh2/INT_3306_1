@@ -8,7 +8,7 @@ export default function Footer() {
       <div className="footer-subscribe">
         <div className="footer-container">
           <div className="subscribe-content">
-            <img src="/player-icon.png" alt="Player" className="subscribe-image" />
+            <img src="/images/icons/player-icon.svg" alt="Player" className="subscribe-image" />
             <div className="subscribe-text">
               <h3>Đăng mẫu đăng ký sử dụng</h3>
               <p>Nhận thông tin khuyến mãi và ưu đãi miễn phí</p>
