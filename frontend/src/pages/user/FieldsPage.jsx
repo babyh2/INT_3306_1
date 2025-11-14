@@ -63,8 +63,6 @@ export default function FieldsPage() {
     <div className="fields-page">
       <Navbar />
 
-      <Hero title="Fields" subtitle="Find the perfect pitch for your match" />
-
       <div className="fields-hero">
         <div className="fields-hero-content">
           <h1>Tìm sân bóng phù hợp với bạn</h1>
