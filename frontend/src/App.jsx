@@ -9,6 +9,10 @@ import ReviewPage from './pages/user/ReviewPage.jsx'
 import LoginPage from './pages/user/LoginPage.jsx'
 import RegisterPage from './pages/user/RegisterPage.jsx'
 import ForgotPasswordPage from './pages/user/ForgotPasswordPage.jsx'
+import BookingStatusPage from './pages/user/BookingStatusPage.jsx'
+import PolicyPage from './pages/user/PolicyPage.jsx'
+import ContactPage from './pages/user/ContactPage.jsx'
+import ApproveBookingsPage from './pages/manager/ApproveBookingsPage.jsx'
 
 function App() {
   return (
@@ -24,6 +28,12 @@ function App() {
         <Route path="/user/login" element={<LoginPage />} />
         <Route path="/user/register" element={<RegisterPage />} />
         <Route path="/user/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/user/booking-status" element={<BookingStatusPage />} />
+        <Route path="/user/policy" element={<PolicyPage />} />
+        <Route path="/user/contact" element={<ContactPage />} />
+        
+        {/* Manager routes */}
+        <Route path="/manager/approve" element={<ApproveBookingsPage />} />
       </Routes>
     </Router>
   )

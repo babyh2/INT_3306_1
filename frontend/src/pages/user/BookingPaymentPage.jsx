@@ -75,8 +75,13 @@ export default function BookingPaymentPage() {
         // Xóa pending booking khỏi localStorage
         localStorage.removeItem('pendingBooking')
         
-        alert('Đặt sân thành công! Vui lòng chờ quản lý xác nhận trong vòng 30 phút.')
-        navigate('/user/bookings') // Redirect to bookings list
+        // Chuyển sang trang trạng thái chờ duyệt
+        if (createdBookingId) {
+          navigate(`/user/booking-status?id=${createdBookingId}`)
+        } else {
+          alert('Lỗi: Không nhận được mã đặt sân')
+          navigate('/user/fields')
+        }
       } else {
         // Booking đã tồn tại: Chỉ update payment method
         await ApiClient.put(`/user/bookings/${bookingId}`, {
@@ -84,8 +89,8 @@ export default function BookingPaymentPage() {
           status: 'pending'
         })
         
-        alert('Yêu cầu đặt sân đã được gửi! Vui lòng chờ quản lý xác nhận trong vòng 30 phút.')
-        navigate('/user/bookings')
+        // Chuyển sang trang trạng thái
+        navigate(`/user/booking-status?id=${bookingId}`)
       }
     } catch (err) {
       console.error(err)

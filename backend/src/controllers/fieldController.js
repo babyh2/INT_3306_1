@@ -10,7 +10,6 @@ export const listFields = async (req, res) => {
 
     const where = { status: 'active' };
     if (q) {
-      // basic search on field_name or location using Sequelize operators
       where[Op.or] = [
         { field_name: { [Op.like]: `%${q}%` } },
         { location: { [Op.like]: `%${q}%` } }
@@ -24,14 +23,12 @@ export const listFields = async (req, res) => {
       offset: Number.parseInt(offset, 10)
     });
 
-    // Map to frontend-friendly shape
     const data = fields.map(f => ({
       field_id: f.field_id,
       field_name: f.field_name,
       location: f.location || 'Chưa cập nhật',
       status: f.status,
       image: '/images/fields/placeholder.svg',
-      // extra ui-only fields
       price: 'Liên hệ',
       pricePerHour: null,
       rating: (Math.random() * 1.5 + 3.5).toFixed(1),
@@ -43,7 +40,6 @@ export const listFields = async (req, res) => {
       isOpen: true
     }));
 
-    // return plain array (frontend expects array)
     res.json(data);
   } catch (error) {
     console.error('List fields error:', error);
@@ -58,13 +54,11 @@ export const getField = async (req, res) => {
     const f = await Field.findOne({ where: { field_id: id } });
     if (!f) return res.status(404).json({ message: 'Field not found' });
 
-    // For now, return basic info and generate some sample available slots for the next 7 days
     const now = new Date();
     const slots = [];
     for (let d = 0; d < 7; d++) {
       const day = new Date(now);
       day.setDate(now.getDate() + d);
-      // generate hourly slots from 6:00 to 22:00
       for (let h = 6; h < 22; h += 2) {
         const start = new Date(day);
         start.setHours(h, 0, 0, 0);
@@ -97,9 +91,8 @@ export const createBooking = async (req, res) => {
   try {
     const { customer_id, field_id, start_time, end_time, price, note } = req.body;
     
-    console.log('Received booking data:', req.body); // Debug log
+    console.log('Received booking data:', req.body);
     
-    // Validate required fields
     if (!customer_id) {
       return res.status(400).json({ message: 'Missing customer_id' });
     }
@@ -116,7 +109,14 @@ export const createBooking = async (req, res) => {
     const finalPrice = price || 0;
     const finalNote = note || '';
 
-    // Check if customer exists in person table
+    const formatDatetime = (isoString) => {
+      const date = new Date(isoString);
+      return date.toISOString().slice(0, 19).replace('T', ' ');
+    };
+
+    const mysqlStartTime = formatDatetime(start_time);
+    const mysqlEndTime = formatDatetime(end_time);
+
     const [customerCheck] = await sequelize.query(
       'SELECT person_id FROM person WHERE person_id = ? LIMIT 1',
       { replacements: [customer_id] }
@@ -129,7 +129,6 @@ export const createBooking = async (req, res) => {
       });
     }
 
-    // Check if field exists
     const [fieldCheck] = await sequelize.query(
       'SELECT field_id FROM fields WHERE field_id = ? LIMIT 1',
       { replacements: [field_id] }
@@ -144,11 +143,9 @@ export const createBooking = async (req, res) => {
 
     await sequelize.query(
       `INSERT INTO bookings (customer_id, field_id, start_time, end_time, price, note, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
-      { replacements: [customer_id, field_id, start_time, end_time, finalPrice, finalNote] }
+      { replacements: [customer_id, field_id, mysqlStartTime, mysqlEndTime, finalPrice, finalNote] }
     );
 
-    // MySQL returns insertId in result for mysql2 driver when using sequelize.query with INSERT
-    // But sequelize.query returns different shapes; perform a follow-up query to fetch the inserted booking
   const [rows] = await sequelize.query('SELECT * FROM bookings WHERE booking_id = LAST_INSERT_ID() LIMIT 1');
   const booking = rows?.[0] ?? null;
 
@@ -224,7 +221,6 @@ export const updateBooking = async (req, res) => {
       { replacements }
     );
 
-    // Fetch updated booking
     const [rows] = await sequelize.query(
       'SELECT * FROM bookings WHERE booking_id = ? LIMIT 1',
       { replacements: [id] }
@@ -234,5 +230,74 @@ export const updateBooking = async (req, res) => {
   } catch (err) {
     console.error('updateBooking error', err);
     res.status(500).json({ message: 'Server error when updating booking' });
+  }
+};
+
+// GET /api/manager/bookings - Get all bookings for manager
+export const listBookings = async (req, res) => {
+  try {
+    const [rows] = await sequelize.query(
+      `SELECT 
+        b.booking_id, b.customer_id, b.field_id, b.start_time, b.end_time,
+        b.price, b.status, b.note, b.created_at,
+        f.field_name, f.location,
+        p.person_name as customer_name, p.phone as customer_phone
+      FROM bookings b
+      LEFT JOIN fields f ON b.field_id = f.field_id
+      LEFT JOIN person p ON b.customer_id = p.person_id
+      ORDER BY b.created_at DESC`
+    );
+
+    res.json(rows || []);
+  } catch (err) {
+    console.error('listBookings error', err);
+    res.status(500).json({ message: 'Server error when fetching bookings' });
+  }
+};
+
+// PUT /api/manager/bookings/:id/approve - Approve booking
+export const approveBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await sequelize.query(
+      `UPDATE bookings SET status = 'confirmed' WHERE booking_id = ?`,
+      { replacements: [id] }
+    );
+
+    const [rows] = await sequelize.query(
+      'SELECT * FROM bookings WHERE booking_id = ? LIMIT 1',
+      { replacements: [id] }
+    );
+
+    res.json({ message: 'Booking approved', booking: rows?.[0] });
+  } catch (err) {
+    console.error('approveBooking error', err);
+    res.status(500).json({ message: 'Server error when approving booking' });
+  }
+};
+
+// PUT /api/manager/bookings/:id/reject - Reject booking
+export const rejectBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const noteUpdate = reason ? ` | Lý do từ chối: ${reason}` : '';
+
+    await sequelize.query(
+      `UPDATE bookings SET status = 'rejected', note = CONCAT(COALESCE(note, ''), ?) WHERE booking_id = ?`,
+      { replacements: [noteUpdate, id] }
+    );
+
+    const [rows] = await sequelize.query(
+      'SELECT * FROM bookings WHERE booking_id = ? LIMIT 1',
+      { replacements: [id] }
+    );
+
+    res.json({ message: 'Booking rejected', booking: rows?.[0] });
+  } catch (err) {
+    console.error('rejectBooking error', err);
+    res.status(500).json({ message: 'Server error when rejecting booking' });
   }
 };

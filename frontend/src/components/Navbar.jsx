@@ -31,10 +31,10 @@ export default function Navbar() {
         <ul className={`navbar-menu ${isMenuOpen ? 'active' : ''}`}>
           <li><Link to="/">Trang chủ</Link></li>
           <li><Link to="/user/fields">Danh sách sân bãi</Link></li>
-          <li><Link to="/user/booking">Đặt lịch</Link></li>
-          <li><Link to="/user/bookings">Chính sách</Link></li>
+          {/* <li><Link to="/user/booking">Đặt lịch</Link></li> */}
+          <li><Link to="/user/policy">Chính sách</Link></li>
           <li><Link to="/user/review">Đánh giá</Link></li>
-          <li><Link to="/user/support">Liên hệ</Link></li>
+          <li><Link to="/user/contact">Liên hệ</Link></li>
         </ul>
 
         <div className="navbar-actions">
