@@ -5,6 +5,7 @@ import FieldsPage from './pages/user/FieldsPage.jsx'
 import FieldDetailPage from './pages/user/FieldDetailPage.jsx'
 import BookingPage from './pages/user/BookingPage.jsx'
 import BookingPaymentPage from './pages/user/BookingPaymentPage.jsx'
+import ReviewPage from './pages/user/ReviewPage.jsx'
 import LoginPage from './pages/user/LoginPage.jsx'
 import RegisterPage from './pages/user/RegisterPage.jsx'
 import ForgotPasswordPage from './pages/user/ForgotPasswordPage.jsx'
@@ -19,6 +20,7 @@ function App() {
         <Route path="/user/fields/:id" element={<FieldDetailPage />} />
         <Route path="/user/booking" element={<BookingPaymentPage />} />
         <Route path="/user/bookings" element={<BookingPage />} />
+        <Route path="/user/review" element={<ReviewPage />} />
         <Route path="/user/login" element={<LoginPage />} />
         <Route path="/user/register" element={<RegisterPage />} />
         <Route path="/user/forgot-password" element={<ForgotPasswordPage />} />
