@@ -2,6 +2,7 @@ import express from "express";
 import {
   getAllFields,
   getFieldById,
+  updateField,
 } from "../../controllers/manager/fieldController.js";
 
 const router = express.Router();
