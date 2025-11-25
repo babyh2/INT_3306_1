@@ -160,6 +160,34 @@ export const createBooking = async (req, res) => {
   }
 };
 
+// GET /api/user/bookings/history - Get booking history for current user
+export const getBookingHistory = async (req, res) => {
+  try {
+    const { customer_id } = req.query;
+    
+    if (!customer_id) {
+      return res.status(400).json({ message: 'Customer ID is required' });
+    }
+
+    const [rows] = await sequelize.query(
+      `SELECT 
+        b.booking_id, b.customer_id, b.field_id, b.start_time, b.end_time,
+        b.price, b.status, b.note,
+        f.field_name, f.location
+      FROM bookings b
+      LEFT JOIN fields f ON b.field_id = f.field_id
+      WHERE b.customer_id = ?
+      ORDER BY b.booking_id DESC`,
+      { replacements: [customer_id] }
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error('getBookingHistory error', err);
+    res.status(500).json({ message: 'Server error when fetching booking history' });
+  }
+};
+
 // GET /api/user/bookings/:id - Get booking details with field info
 export const getBooking = async (req, res) => {
   try {
