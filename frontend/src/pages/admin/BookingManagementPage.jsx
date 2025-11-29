@@ -1,78 +1,226 @@
-import React, { useState } from 'react';
-
-const initialBookings = [
-    { id: 'booking1', customer: 'Nguyễn Văn An', phone: '0901234567', field: 'Sân Bóng Thiên Long', address: '123 Đường Nguyễn Văn A, Quận 1', date: '20/10/2025', time: '18:00 - 20:00 (2 giờ)', price: '400,000 VNĐ', status: 'Đã xác nhận' },
-    { id: 'booking2', customer: 'Trần Thị Bình', phone: '0912345678', field: 'Sân Bóng Hoàng Gia', address: '456 Đường Lê Văn B, Quận 2', date: '21/10/2025', time: '16:00 - 18:00 (2 giờ)', price: '350,000 VNĐ', status: 'Chờ xác nhận' },
-    { id: 'booking3', customer: 'Lê Văn Cường', phone: '0923456789', field: 'Sân Bóng Phú Thọ', address: '789 Đường Trần Văn C, Quận 3', date: '20/10/2025', time: '19:00 - 21:00 (2 giờ)', price: '450,000 VNĐ', status: 'Đã xác nhận' },
-    { id: 'booking4', customer: 'Phạm Thị Dung', phone: '0934567890', field: 'Sân Bóng Đại Nam', address: '321 Đường Phan Văn D, Quận 4', date: '22/10/2025', time: '17:00 - 19:00 (2 giờ)', price: '380,000 VNĐ', status: 'Đã xác nhận' },
-    { id: 'booking5', customer: 'Hoàng Văn Em', phone: '0945678901', field: 'Sân Bóng Hòa Bình', address: '654 Đường Võ Văn E, Quận 5', date: '19/10/2025', time: '18:00 - 20:00 (2 giờ)', price: '400,000 VNĐ', status: 'Đã hoàn thành' },
-    { id: 'booking6', customer: 'Vũ Thị Hoa', phone: '0956789012', field: 'Sân Bóng Thiên Long', address: '123 Đường Nguyễn Văn A, Quận 1', date: '23/10/2025', time: '15:00 - 17:00 (2 giờ)', price: '350,000 VNĐ', status: 'Chờ xác nhận' }
-];
+import React, { useState, useEffect } from 'react';
+import { getAllBookings, getBookingById, updateBookingStatus, cancelBooking, getBookingStats } from '../../api/adminApi';
+import DataTable from '../../components/admin/DataTable';
+import Modal from '../../components/admin/Modal';
+import ConfirmDialog from '../../components/admin/ConfirmDialog';
+import StatsCard from '../../components/admin/StatsCard';
+import Pagination from '../../components/admin/Pagination';
+import { showSuccess, showError } from '../../components/admin/Toast';
 
 function BookingManagementPage() {
-    const [bookings, setBookings] = useState(initialBookings);
+    const [bookings, setBookings] = useState([]);
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const [search, setSearch] = useState('');
-    const [selected, setSelected] = useState(null);
+    const [statusFilter, setStatusFilter] = useState('');
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedBooking, setSelectedBooking] = useState(null);
+    const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, booking: null, action: null });
 
-    const filtered = bookings.filter(b => b.customer.toLowerCase().includes(search.toLowerCase()));
+    useEffect(() => {
+        fetchBookings();
+        fetchStats();
+    }, [currentPage, search, statusFilter]);
 
-    const openModal = (booking) => setSelected(booking);
-    const closeModal = () => setSelected(null);
+    const fetchBookings = async () => {
+        try {
+            setLoading(true);
+            const response = await getAllBookings({
+                page: currentPage,
+                limit: 10,
+                search,
+                status: statusFilter
+            });
+            setBookings(response.data.data.bookings);
+            setTotalPages(response.data.data.totalPages);
+        } catch (error) {
+            showError('Lỗi khi tải danh sách đặt sân');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    const confirmBooking = () => { alert('Đã xác nhận đặt sân!'); closeModal(); };
-    const cancelBooking = () => { if (window.confirm('Bạn có chắc muốn hủy đặt sân này?')) { alert('Đã hủy đặt sân!'); closeModal(); } };
-    const addBooking = () => { alert('Chức năng thêm đặt sân sẽ được triển khai'); };
+    const fetchStats = async () => {
+        try {
+            const response = await getBookingStats();
+            setStats(response.data.data);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleViewDetail = async (booking) => {
+        try {
+            const response = await getBookingById(booking.booking_id);
+            setSelectedBooking(response.data.data);
+            setIsDetailModalOpen(true);
+        } catch (error) {
+            showError('Lỗi khi tải chi tiết đặt sân');
+        }
+    };
+
+    const handleUpdateStatus = async (status) => {
+        try {
+            await updateBookingStatus(confirmDialog.booking.booking_id, status);
+            showSuccess('Cập nhật trạng thái thành công');
+            setConfirmDialog({ isOpen: false, booking: null, action: null });
+            fetchBookings();
+            fetchStats();
+        } catch (error) {
+            showError(error.response?.data?.message || 'Có lỗi xảy ra');
+        }
+    };
+
+    const handleCancel = async () => {
+        try {
+            await cancelBooking(confirmDialog.booking.booking_id);
+            showSuccess('Hủy đặt sân thành công');
+            setConfirmDialog({ isOpen: false, booking: null, action: null });
+            fetchBookings();
+            fetchStats();
+        } catch (error) {
+            showError(error.response?.data?.message || 'Có lỗi xảy ra');
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'pending': return { bg: '#fef3c7', color: '#92400e' };
+            case 'confirmed': return { bg: '#dbeafe', color: '#1e40af' };
+            case 'completed': return { bg: '#d1fae5', color: '#065f46' };
+            case 'cancelled': return { bg: '#fee2e2', color: '#991b1b' };
+            default: return { bg: '#f3f4f6', color: '#374151' };
+        }
+    };
+
+    const getStatusText = (status) => {
+        switch (status) {
+            case 'pending': return 'Chờ xác nhận';
+            case 'confirmed': return 'Đã xác nhận';
+            case 'completed': return 'Đã hoàn thành';
+            case 'cancelled': return 'Đã hủy';
+            default: return status;
+        }
+    };
+
+    const columns = [
+        { key: 'booking_id', label: 'ID', sortable: true },
+        {
+            key: 'customer',
+            label: 'Khách hàng',
+            render: (value) => value?.person_name || 'N/A'
+        },
+        {
+            key: 'field',
+            label: 'Sân',
+            render: (value) => value?.field_name || 'N/A'
+        },
+        {
+            key: 'booking_date',
+            label: 'Ngày đặt',
+            render: (value) => new Date(value).toLocaleDateString('vi-VN')
+        },
+        {
+            key: 'total_price',
+            label: 'Tổng tiền',
+            render: (value) => `${Number(value).toLocaleString()} VNĐ`
+        },
+        {
+            key: 'status',
+            label: 'Trạng thái',
+            render: (value) => {
+                const { bg, color } = getStatusColor(value);
+                return <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '500', background: bg, color }}>{getStatusText(value)}</span>;
+            }
+        }
+    ];
+
+    const actions = (booking) => (
+        <>
+            <button onClick={() => handleViewDetail(booking)} style={{ padding: '6px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>👁️ Xem</button>
+            {booking.status === 'pending' && (
+                <button onClick={() => setConfirmDialog({ isOpen: true, booking, action: 'confirm' })} style={{ padding: '6px 12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>✅</button>
+            )}
+            {(booking.status === 'pending' || booking.status === 'confirmed') && (
+                <button onClick={() => setConfirmDialog({ isOpen: true, booking, action: 'cancel' })} style={{ padding: '6px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>❌</button>
+            )}
+        </>
+    );
 
     return (
         <>
             <header className="page-header">
                 <h1>Quản Lý Đặt Sân</h1>
-                <button className="btn-primary" onClick={addBooking}>+ Thêm Đặt Sân</button>
             </header>
-            <div className="stats-container">
-                <div className="stat-card"><h3>Tổng Lượt Đặt (Tháng)</h3><p className="stat-number">156</p></div>
-                <div className="stat-card"><h3>Đặt Sân Hôm Nay</h3><p className="stat-number">8</p></div>
-                <div className="stat-card"><h3>Doanh Thu (Tháng)</h3><p className="stat-number">89.5</p><span style={{ fontSize: '0.8em', color: '#FFC107' }}>triệu VNĐ</span></div>
-            </div>
-            <div className="search-bar">
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Tìm kiếm đặt sân..." />
-            </div>
-            <div className="bookings-container">
-                {filtered.map(b => (
-                    <div key={b.id} className="booking-card" onClick={() => openModal(b)}>
-                        <div className="booking-header">
-                            <h3>{b.customer}</h3>
-                            <span className={`booking-status ${b.status === 'Đã xác nhận' ? 'status-confirmed' : b.status === 'Chờ xác nhận' ? 'status-pending' : b.status === 'Đã hoàn thành' ? 'status-completed' : ''}`}>{b.status}</span>
-                        </div>
-                        <div className="booking-info">
-                            <p className="field-name">🏟️ {b.field}</p>
-                            <p className="booking-date">📅 {b.date} - {b.time.split(' ')[0]} {b.time.includes('-') ? '' : b.time}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-            {selected && (
-                <div className="modal show" onClick={(e) => { if (e.target.classList.contains('modal')) closeModal(); }}>
-                    <div className="modal-content">
-                        <span className="close" onClick={closeModal}>×</span>
-                        <h2>Chi Tiết Đặt Sân</h2>
-                        <div className="booking-details">
-                            <div className="detail-row"><span className="detail-label">Người đặt:</span><span className="detail-value">{selected.customer}</span></div>
-                            <div className="detail-row"><span className="detail-label">Số điện thoại:</span><span className="detail-value">{selected.phone}</span></div>
-                            <div className="detail-row"><span className="detail-label">Sân bóng:</span><span className="detail-value">{selected.field}</span></div>
-                            <div className="detail-row"><span className="detail-label">Địa chỉ sân:</span><span className="detail-value">{selected.address}</span></div>
-                            <div className="detail-row"><span className="detail-label">Ngày đặt:</span><span className="detail-value">{selected.date}</span></div>
-                            <div className="detail-row"><span className="detail-label">Khung giờ:</span><span className="detail-value">{selected.time}</span></div>
-                            <div className="detail-row"><span className="detail-label">Giá sân:</span><span className="detail-value detail-price">{selected.price}</span></div>
-                            <div className="detail-row"><span className="detail-label">Trạng thái:</span><span className="detail-value">{selected.status}</span></div>
-                        </div>
-                        <div className="modal-actions">
-                            <button className="btn-primary" onClick={confirmBooking}>Xác nhận</button>
-                            <button className="btn-secondary" onClick={cancelBooking}>Hủy đặt sân</button>
-                        </div>
-                    </div>
+            {stats && (
+                <div className="stats-container">
+                    <StatsCard title="Tổng đặt sân" value={stats.total} icon="📋" color="blue" />
+                    <StatsCard title="Chờ xác nhận" value={stats.pending} icon="⏳" color="yellow" />
+                    <StatsCard title="Đã xác nhận" value={stats.confirmed} icon="✅" color="green" />
+                    <StatsCard title="Đã hoàn thành" value={stats.completed} icon="🏆" color="purple" />
                 </div>
             )}
+            <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="🔍 Tìm kiếm đặt sân..." style={{ flex: 1, padding: '10px', border: '1px solid #e5e7eb', borderRadius: '8px' }} />
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: '10px', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="pending">Chờ xác nhận</option>
+                    <option value="confirmed">Đã xác nhận</option>
+                    <option value="completed">Đã hoàn thành</option>
+                    <option value="cancelled">Đã hủy</option>
+                </select>
+            </div>
+            <DataTable columns={columns} data={bookings} actions={actions} isLoading={loading} />
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+
+            {selectedBooking && (
+                <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Chi tiết đặt sân" size="large">
+                    <div style={{ display: 'grid', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px', padding: '8px', background: '#f9fafb', borderRadius: '6px' }}>
+                            <span style={{ fontWeight: '600' }}>Mã đặt sân:</span>
+                            <span>#{selectedBooking.booking_id}</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px', padding: '8px' }}>
+                            <span style={{ fontWeight: '600' }}>Khách hàng:</span>
+                            <span>{selectedBooking.customer?.person_name} - {selectedBooking.customer?.phone}</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px', padding: '8px', background: '#f9fafb', borderRadius: '6px' }}>
+                            <span style={{ fontWeight: '600' }}>Sân bóng:</span>
+                            <span>{selectedBooking.field?.field_name}</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px', padding: '8px' }}>
+                            <span style={{ fontWeight: '600' }}>Ngày đặt:</span>
+                            <span>{new Date(selectedBooking.booking_date).toLocaleDateString('vi-VN')}</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px', padding: '8px', background: '#f9fafb', borderRadius: '6px' }}>
+                            <span style={{ fontWeight: '600' }}>Tổng tiền:</span>
+                            <span style={{ color: '#10b981', fontWeight: '700' }}>{Number(selectedBooking.total_price).toLocaleString()} VNĐ</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px', padding: '8px' }}>
+                            <span style={{ fontWeight: '600' }}>Trạng thái:</span>
+                            <span>{getStatusText(selectedBooking.status)}</span>
+                        </div>
+                        {selectedBooking.note && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '8px', padding: '8px', background: '#f9fafb', borderRadius: '6px' }}>
+                                <span style={{ fontWeight: '600' }}>Ghi chú:</span>
+                                <span>{selectedBooking.note}</span>
+                            </div>
+                        )}
+                    </div>
+                </Modal>
+            )}
+
+            <ConfirmDialog
+                isOpen={confirmDialog.isOpen}
+                onClose={() => setConfirmDialog({ isOpen: false, booking: null, action: null })}
+                onConfirm={() => confirmDialog.action === 'confirm' ? handleUpdateStatus('confirmed') : handleCancel()}
+                title={confirmDialog.action === 'confirm' ? 'Xác nhận đặt sân' : 'Hủy đặt sân'}
+                message={confirmDialog.action === 'confirm' ? 'Bạn có chắc chắn muốn xác nhận đặt sân này?' : 'Bạn có chắc chắn muốn hủy đặt sân này?'}
+                confirmText={confirmDialog.action === 'confirm' ? 'Xác nhận' : 'Hủy'}
+                type={confirmDialog.action === 'confirm' ? 'info' : 'danger'}
+            />
         </>
     );
 }

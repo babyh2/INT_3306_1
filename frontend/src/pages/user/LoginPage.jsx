@@ -1,16 +1,14 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { authAPI } from '../../services/api'
 import './LoginPage.css'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: ''
   })
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
 
   const handleChange = (e) => {
     setFormData({
@@ -22,29 +20,42 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    setLoading(true)
 
-    // Validation
-    if (!formData.username || !formData.password) {
+    // Demo validation
+    if (!formData.email || !formData.password) {
       setError('Vui lòng điền đầy đủ thông tin')
-      setLoading(false)
       return
     }
 
     try {
-      const response = await authAPI.login(formData)
-      
-      if (response.success) {
-        alert('Đăng nhập thành công!')
-        navigate('/user')
-      } else {
-        setError(response.message || 'Đăng nhập thất bại')
+      // Gọi API backend để đăng nhập
+      const res = await fetch('http://localhost:4000/api/user/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: formData.email, // backend dùng username/email đều được
+          password: formData.password
+        })
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Đăng nhập thất bại' }))
+        throw new Error(err.message || 'Đăng nhập thất bại')
       }
-    } catch (err) {
-      console.error('Login error:', err)
-      setError(err.message || 'Có lỗi xảy ra khi đăng nhập')
-    } finally {
-      setLoading(false)
+
+      const data = await res.json()
+      // Lưu token và user vào localStorage
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+
+      // Nếu là admin thì chuyển sang /admin, ngược lại về /user
+      if (data.user?.role === 'admin') {
+        navigate('/admin')
+      } else {
+        navigate('/user')
+      }
+    } catch (e) {
+      setError(e.message || 'Có lỗi xảy ra khi đăng nhập')
     }
   }
 
@@ -61,16 +72,15 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
-              <label htmlFor="username">Username hoặc Email</label>
+              <label htmlFor="email">Email</label>
               <input
-                id="username"
-                type="text"
-                name="username"
-                value={formData.username}
+                id="email"
+                type="email"
+                name="email"
+                value={formData.email}
                 onChange={handleChange}
-                placeholder="Nhập username hoặc email"
+                placeholder="Nhập email của bạn"
                 required
-                disabled={loading}
               />
             </div>
 
@@ -84,22 +94,21 @@ export default function LoginPage() {
                 onChange={handleChange}
                 placeholder="Nhập mật khẩu"
                 required
-                disabled={loading}
               />
             </div>
 
             <div className="form-options">
               <label className="remember-me">
-                <input type="checkbox" disabled={loading} />
+                <input type="checkbox" />
                 <span>Ghi nhớ đăng nhập</span>
               </label>
-              <Link to="/user/forgot-password" className="forgot-link">
+              <Link to="/forgot-password" className="forgot-link">
                 Quên mật khẩu?
               </Link>
             </div>
 
-            <button type="submit" className="auth-submit-btn" disabled={loading}>
-              {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            <button type="submit" className="auth-submit-btn">
+              Đăng nhập
             </button>
           </form>
 
@@ -114,10 +123,10 @@ export default function LoginPage() {
           </div>
 
           <div className="social-login">
-            <button className="social-btn google" disabled={loading}>
+            <button className="social-btn google">
               <span>🔍</span> Google
             </button>
-            <button className="social-btn facebook" disabled={loading}>
+            <button className="social-btn facebook">
               <span>f</span> Facebook
             </button>
           </div>

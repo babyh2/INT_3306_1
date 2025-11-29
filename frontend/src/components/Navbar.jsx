@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { authAPI } from '../services/api'
 import './Navbar.css'
 
 export default function Navbar() {
@@ -9,34 +8,17 @@ export default function Navbar() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const checkAuth = () => {
-      const storedUser = localStorage.getItem('user')
-      const token = localStorage.getItem('token')
-      
-      if (storedUser && token) {
-        setUser(JSON.parse(storedUser))
-      } else {
-        setUser(null)
-      }
-    }
-    
-    checkAuth()
-    
-    window.addEventListener('storage', checkAuth)
-    
-    return () => {
-      window.removeEventListener('storage', checkAuth)
+    // Kiểm tra user đã đăng nhập chưa
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
     }
   }, [])
 
-  const handleLogout = async () => {
-    try {
-      await authAPI.logout()
-    } catch (err) {
-      console.error('Logout error:', err)
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('user')
     setUser(null)
-    navigate('/user/login')
+    navigate('/')
   }
 
   return (
@@ -49,10 +31,10 @@ export default function Navbar() {
         <ul className={`navbar-menu ${isMenuOpen ? 'active' : ''}`}>
           <li><Link to="/">Trang chủ</Link></li>
           <li><Link to="/user/fields">Danh sách sân bãi</Link></li>
-          {user && <li><Link to="/user/booking-history">Lịch sử đặt sân</Link></li>}
-          <li><Link to="/user/policy">Chính sách</Link></li>
+          <li><Link to="/user/booking">Đặt lịch</Link></li>
+          <li><Link to="/user/bookings">Chính sách</Link></li>
           <li><Link to="/user/review">Đánh giá</Link></li>
-          <li><Link to="/user/contact">Liên hệ</Link></li>
+          <li><Link to="/user/support">Liên hệ</Link></li>
         </ul>
 
         <div className="navbar-actions">
