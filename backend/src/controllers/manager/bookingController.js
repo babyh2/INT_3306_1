@@ -35,7 +35,7 @@ export const getAllBookings = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Error in getAllBookings:", err);
+    console.error("Error in getAllBooking:", err);
     res.status(500).json({
       success: false,
       message: "Lỗi server khi lấy danh sách đặt sân",
