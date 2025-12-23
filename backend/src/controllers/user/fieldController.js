@@ -137,7 +137,9 @@ export const getField = async (req, res) => {
 // POST /api/user/bookings
 export const createBooking = async (req, res) => {
   try {
-    const { customer_id, field_id, start_time, end_time, price, note } = req.body;
+    // Get customer_id from authenticated user (JWT payload has 'id' field)
+    const customer_id = req.user?.id;
+    const { field_id, start_time, end_time, price, note, customer_name, customer_phone } = req.body;
     
     if (!customer_id) {
       return res.status(400).json({ message: 'Missing customer_id' });
@@ -153,7 +155,16 @@ export const createBooking = async (req, res) => {
     }
 
     const finalPrice = price || 0;
-    const finalNote = note || '';
+    // Combine customer info with note
+    let finalNote = '';
+    if (customer_name || customer_phone) {
+      finalNote += `Tên: ${customer_name || 'N/A'}, SĐT: ${customer_phone || 'N/A'}`;
+      if (note) {
+        finalNote += ` - Ghi chú: ${note}`;
+      }
+    } else {
+      finalNote = note || '';
+    }
 
     const formatDatetime = (isoString) => {
       const date = new Date(isoString);
@@ -205,12 +216,46 @@ export const createBooking = async (req, res) => {
 
     res.status(201).json({ message: 'Booking created', booking });
   } catch (err) {
-    console.error('createBooking error', err);
+    console.error('createBooking error:', err);
+    console.error('Error stack:', err.stack);
+    console.error('SQL Error:', err.original?.sqlMessage);
     res.status(500).json({ 
       message: 'Server error when creating booking', 
       error: err.message,
-      sqlError: err.original?.sqlMessage || err.original?.message
+      sqlError: err.original?.sqlMessage || err.original?.message,
+      details: err.toString()
     });
+  }
+};
+
+// GET /api/user/fields/:id/bookings - Get bookings for a specific field and date
+export const getFieldBookings = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date } = req.query;
+    
+    if (!id) {
+      return res.status(400).json({ message: 'Field ID is required' });
+    }
+    
+    if (!date) {
+      return res.status(400).json({ message: 'Date is required' });
+    }
+
+    // Query bookings for the specific field and date
+    const [rows] = await sequelize.query(
+      `SELECT 
+        booking_id, customer_id, field_id, start_time, end_time, status, price, note
+      FROM bookings
+      WHERE field_id = ? AND DATE(start_time) = ? AND status != 'cancelled'
+      ORDER BY start_time ASC`,
+      { replacements: [id, date] }
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error('getFieldBookings error', err);
+    res.status(500).json({ message: 'Server error when fetching field bookings' });
   }
 };
 

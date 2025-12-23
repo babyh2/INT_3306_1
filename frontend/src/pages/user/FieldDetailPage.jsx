@@ -1,28 +1,47 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useContext } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar.jsx'
 import Footer from '../../components/Footer.jsx'
 import ApiClient, { authAPI } from '../../services/api'
+import { ChatWidgetContext } from '../../App'
 import './FieldDetailPage.css'
 
 export default function FieldDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const chatWidgetRef = useContext(ChatWidgetContext)
   const [field, setField] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
   const [selectedDate, setSelectedDate] = useState('')
-  const [selectedTime, setSelectedTime] = useState(null)
+  const [selectedSlot, setSelectedSlot] = useState(null)
   const [bookingForm, setBookingForm] = useState({
     name: '',
-    email: '',
     phone: '',
     note: ''
   })
-  const [activeTab, setActiveTab] = useState('info')
+  const [activeTab, setActiveTab] = useState('overview')
+  const [bookedSlots, setBookedSlots] = useState([])
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [formErrors, setFormErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+
+  const handleChatWithManager = () => {
+    if (!authAPI.isAuthenticated()) {
+      if (window.confirm('Bạn cần đăng nhập để chat với manager. Chuyển đến trang đăng nhập?')) {
+        navigate('/user/login')
+      }
+      return
+    }
+
+    if (!field?.manager_id) {
+      alert('Sân này chưa có manager phụ trách')
+      return
+    }
+
+    chatWidgetRef?.current?.openChatWithManager(field.manager_id)
+  }
 
   useEffect(() => {
     const fetchField = async () => {
@@ -32,7 +51,7 @@ export default function FieldDetailPage() {
         setField(res)
       } catch (err) {
         console.error(err)
-        setError('Failed to load field')
+        setError('Không thể tải thông tin sân bóng')
       } finally {
         setLoading(false)
       }
@@ -40,86 +59,124 @@ export default function FieldDetailPage() {
     fetchField()
   }, [id])
 
-  // Convert backend slots to calendar format - 7 days x 4 shifts
-  const timeSlots = field?.slots ? (() => {
-    const grouped = {}
-    const shiftLabels = ['Ca sáng', 'Ca trưa', 'Ca chiều', 'Ca tối']
+  // Fetch booked slots when date changes
+  useEffect(() => {
+    if (!selectedDate || !field) return
     
-    field.slots.forEach(slot => {
-      const start = new Date(slot.start_time)
-      const dateKey = start.toLocaleDateString('vi-VN')
-      const hour = start.getHours()
-      
-      // Determine which shift (0-3)
-      let shiftIndex = 0
-      if (hour >= 6 && hour < 9) shiftIndex = 0
-      else if (hour >= 9 && hour < 12) shiftIndex = 1
-      else if (hour >= 14 && hour < 17) shiftIndex = 2
-      else if (hour >= 18 && hour < 21) shiftIndex = 3
-      
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = {
-          day: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][start.getDay()],
-          date: start.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
-          shifts: [null, null, null, null] // 4 shifts per day
-        }
+    const fetchBookedSlots = async () => {
+      try {
+        // Fetch bookings for this field and date
+        const res = await ApiClient.get(`/user/fields/${id}/bookings?date=${selectedDate}`)
+        const bookings = Array.isArray(res) ? res : (res.data || [])
+        setBookedSlots(bookings)
+      } catch (err) {
+        console.error('Error fetching bookings:', err)
+        setBookedSlots([])
       }
-      
-      const end = new Date(slot.end_time)
-      const startTime = start.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
-      const endTime = end.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
-      
-      grouped[dateKey].shifts[shiftIndex] = {
-        label: slot.shift_label || shiftLabels[shiftIndex],
-        time: `${startTime} - ${endTime}`,
-        price: '300K/ca',
-        available: slot.available !== false,
-        start_time: slot.start_time,
-        end_time: slot.end_time
-      }
-    })
-    
-    return Object.values(grouped).slice(0, 7) // 7 days
-  })() : []
-
-  const reviews = [
-    { id: 1, user: 'Nguyễn Văn A', rating: 5, date: '15/10/2025', comment: 'Sân đẹp, cỏ tốt, giá cả hợp lý' },
-    { id: 2, user: 'Trần Thị B', rating: 4, date: '12/10/2025', comment: 'Sân rộng, thoáng mát, nhân viên nhiệt tình' },
-    { id: 3, user: 'Lê Văn C', rating: 5, date: '10/10/2025', comment: 'Sân chất lượng, vị trí thuận tiện' }
-  ]
-
-  const handleTimeSelect = (dayIndex, shiftIndex) => {
-    const shift = timeSlots[dayIndex]?.shifts[shiftIndex]
-    if (shift && shift.available) {
-      setSelectedTime({ dayIndex, shiftIndex, timeSlot: shift })
     }
+    
+    fetchBookedSlots()
+  }, [selectedDate, id, field])
+
+  // Generate sample images if not available
+  const getImages = () => {
+    if (field?.images && field.images.length > 0) {
+      return field.images
+    }
+    return [
+      field?.image || 'https://images.unsplash.com/photo-1459865264687-595d652de67e?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&w=1200&q=80'
+    ]
   }
 
-  const handleBookingSubmit = async (e) => {
-    e.preventDefault()
-    setFormErrors({})
+  // Format price
+  const formatPrice = (price) => {
+    if (!price || price === 'undefined' || price === 'null') return 'Liên hệ'
+    const priceStr = String(price).replace(/[^\d]/g, '')
+    const numPrice = parseInt(priceStr)
+    if (isNaN(numPrice) || numPrice === 0) return 'Liên hệ'
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numPrice)
+  }
 
+  // Generate time slots for booking
+  const generateTimeSlots = () => {
+    if (!selectedDate) return []
+    
+    const times = [
+      { label: 'Sáng sớm', time: '06:00 - 08:00', icon: '🌅' },
+      { label: 'Buổi sáng', time: '08:00 - 10:00', icon: '☀️' },
+      { label: 'Trưa', time: '10:00 - 12:00', icon: '🌤️' },
+      { label: 'Chiều', time: '14:00 - 16:00', icon: '⛅' },
+      { label: 'Chiều tối', time: '16:00 - 18:00', icon: '🌆' },
+      { label: 'Tối', time: '18:00 - 20:00', icon: '🌙' },
+      { label: 'Tối muộn', time: '20:00 - 22:00', icon: '🌃' }
+    ]
+
+    // Check if time slot is booked
+    const isSlotBooked = (startTime, endTime) => {
+      return bookedSlots.some(booking => {
+        const bookingStart = new Date(booking.start_time).getTime()
+        const bookingEnd = new Date(booking.end_time).getTime()
+        const slotStart = new Date(`${selectedDate}T${startTime}`).getTime()
+        const slotEnd = new Date(`${selectedDate}T${endTime}`).getTime()
+        
+        // Check if there's any overlap
+        return (slotStart < bookingEnd && slotEnd > bookingStart)
+      })
+    }
+
+    if (field?.slots && field.slots.length > 0) {
+      return field.slots.map(slot => {
+        const startTime = new Date(slot.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+        const endTime = new Date(slot.end_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+        const available = !isSlotBooked(startTime, endTime)
+        
+        return {
+          id: slot.id,
+          label: slot.shift_label || 'Ca thuê',
+          time: `${startTime} - ${endTime}`,
+          price: slot.price || field.price,
+          available: available,
+          start_time: `${selectedDate}T${startTime}`,
+          end_time: `${selectedDate}T${endTime}`
+        }
+      })
+    }
+
+    return times.map((t, i) => {
+      const [startTime, endTime] = t.time.split(' - ')
+      const available = !isSlotBooked(startTime, endTime)
+      
+      return {
+        id: `slot-${i}-${startTime.replace(':', '')}`,
+        ...t,
+        price: field?.price || '300000',
+        available: available,
+        start_time: `${selectedDate}T${startTime}`,
+        end_time: `${selectedDate}T${endTime}`
+      }
+    })
+  }
+
+  const handleBooking = async (e) => {
+    e.preventDefault()
+    
+    // Check authentication first
     if (!authAPI.isAuthenticated()) {
       if (window.confirm('Bạn cần đăng nhập để đặt sân. Chuyển đến trang đăng nhập?')) {
         navigate('/user/login')
       }
       return
     }
-    
-    // Validate form
+
+    // Validation
     const errors = {}
-    if (!selectedTime) {
-      errors.time = 'Vui lòng chọn khung giờ đặt sân'
-    }
-    if (!bookingForm.name || bookingForm.name.trim().length < 3) {
-      errors.name = 'Họ tên phải có ít nhất 3 ký tự'
-    }
-    if (!bookingForm.phone || !/^(0|\+84)[0-9]{9,10}$/.test(bookingForm.phone.replace(/\s/g, ''))) {
-      errors.phone = 'Số điện thoại không hợp lệ'
-    }
-    if (bookingForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookingForm.email)) {
-      errors.email = 'Email không hợp lệ'
-    }
+    if (!bookingForm.name.trim()) errors.name = 'Vui lòng nhập tên'
+    if (!bookingForm.phone.trim()) errors.phone = 'Vui lòng nhập số điện thoại'
+    if (!selectedDate) errors.date = 'Vui lòng chọn ngày'
+    if (!selectedSlot) errors.slot = 'Vui lòng chọn khung giờ'
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
@@ -127,513 +184,512 @@ export default function FieldDetailPage() {
     }
 
     setSubmitting(true)
+    try {
+      // Create datetime strings for start and end time
+      const startDateTime = selectedSlot.start_time || `${selectedDate}T${selectedSlot.time.split(' - ')[0]}:00`
+      const endDateTime = selectedSlot.end_time || `${selectedDate}T${selectedSlot.time.split(' - ')[1]}:00`
 
-    const currentUser = authAPI.getCurrentUser()
+      // Parse price to number, use default if invalid
+      let numericPrice = 300000 // Default demo price
+      const priceValue = selectedSlot.price || field.price
+      if (priceValue && typeof priceValue === 'number') {
+        numericPrice = priceValue
+      } else if (priceValue && typeof priceValue === 'string') {
+        const parsed = parseInt(priceValue.replace(/[^\d]/g, ''))
+        if (!isNaN(parsed) && parsed > 0) {
+          numericPrice = parsed
+        }
+      }
 
-    const bookingData = {
-      customer_id: currentUser?.person_id || 1,
-      field_id: Number(field.field_id),
-      field_name: field.field_name,
-      location: field.location,
-      start_time: selectedTime.timeSlot.start_time,
-      end_time: selectedTime.timeSlot.end_time,
-      price: 1200000,
-      customer_name: bookingForm.name,
-      customer_email: bookingForm.email,
-      customer_phone: bookingForm.phone,
-      note: bookingForm.note
+      const bookingData = {
+        field_id: field.field_id || field.id,
+        start_time: new Date(startDateTime).toISOString(),
+        end_time: new Date(endDateTime).toISOString(),
+        price: numericPrice,
+        customer_name: bookingForm.name,
+        customer_phone: bookingForm.phone,
+        note: bookingForm.note || ''
+      }
+
+      const response = await ApiClient.post('/user/bookings', bookingData)
+      const bookingId = response.booking?.booking_id || response.booking?.id
+      
+      // Chuyển sang trang thanh toán với booking_id
+      if (bookingId) {
+        navigate(`/user/booking?id=${bookingId}`)
+      } else {
+        alert('Đặt sân thành công nhưng không nhận được mã đặt sân')
+        navigate('/user/bookings')
+      }
+    } catch (err) {
+      console.error(err)
+      const errorMsg = err.response?.data?.message || err.message || 'Đặt sân thất bại. Vui lòng thử lại.'
+      alert(errorMsg)
+    } finally {
+      setSubmitting(false)
     }
-    
-    // Lưu vào localStorage để trang thanh toán sử dụng
-    localStorage.setItem('pendingBooking', JSON.stringify(bookingData))
-    
-    setSubmitting(false)
-    navigate('/user/booking')
   }
 
-  const handleFormChange = (e) => {
-    setBookingForm({
-      ...bookingForm,
-      [e.target.name]: e.target.value
-    })
+  const facilities = field?.facilities || ['Bãi đỗ xe', 'Phòng thay đồ', 'Căng tin', 'Wi-Fi', 'Điều hòa', 'Camera an ninh']
+  
+  const reviews = field?.reviews || [
+    { id: 1, name: 'Nguyễn Văn A', rating: 5, comment: 'Sân đẹp, tiện nghi đầy đủ. Tôi sẽ quay lại!', date: '2 ngày trước', avatar: '👤' },
+    { id: 2, name: 'Trần Thị B', rating: 4, comment: 'Chất lượng tốt, giá cả hợp lý.', date: '1 tuần trước', avatar: '👤' },
+    { id: 3, name: 'Lê Văn C', rating: 5, comment: 'Sân rộng rãi, cỏ xanh tốt. Rất hài lòng!', date: '2 tuần trước', avatar: '👤' }
+  ]
+
+  if (loading) {
+    return (
+      <div className="modern-detail-page">
+        <Navbar />
+        <div className="loading-container-modern">
+          <div className="loading-spinner-modern"></div>
+          <p>Đang tải thông tin sân bóng...</p>
+        </div>
+        <Footer />
+      </div>
+    )
   }
 
-  if (loading) return <div className="field-detail-page"><Navbar /><div className="container">Loading…</div><Footer /></div>
-  if (error) return <div className="field-detail-page"><Navbar /><div className="container">{error}</div><Footer /></div>
+  if (error || !field) {
+    return (
+      <div className="modern-detail-page">
+        <Navbar />
+        <div className="error-container-modern">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <h2>Không tìm thấy sân bóng</h2>
+          <p>{error || 'Sân bóng không tồn tại hoặc đã bị xóa'}</p>
+          <button onClick={() => navigate('/user/fields')} className="back-btn-modern">
+            ← Quay lại danh sách
+          </button>
+        </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  const images = getImages()
+  const timeSlots = generateTimeSlots()
 
   return (
-    <div className="field-detail-page">
+    <div className="modern-detail-page">
       <Navbar />
-      
-      <div className="field-detail-container">
-        {/* Header */}
-        <div className="field-header">
-          <div className="field-header-left">
-            <h1>{field.field_name}</h1>
-            <p className="field-address">
-              📍 {field.location}
-            </p>
-          </div>
-          <div className="field-header-right">
-            <div className="field-rating">
-              <span className="rating-score">Đánh giá: 4.5</span>
-              <span className="rating-stars">⭐ (123 Đánh giá)</span>
-            </div>
-            <div className="field-actions">
-              <button className="action-btn">🔗</button>
-              <button className="action-btn">❤️</button>
-              <button className="action-btn">⚠️</button>
-            </div>
-          </div>
-        </div>
 
-        {/* Images Gallery */}
-        <div className="field-gallery">
-          <div className="gallery-main">
-            <img src={field.image || '/images/fields/placeholder.svg'} alt={field.field_name} />
+      {/* Hero Section with Image Gallery */}
+      <section className="detail-hero">
+        <div className="hero-gallery">
+          <div className="main-image-wrapper">
+            <img src={images[currentImageIndex]} alt={field.field_name || field.name} className="main-image" />
+            <div className="image-navigation">
+              <button 
+                className="nav-btn prev" 
+                onClick={() => setCurrentImageIndex((currentImageIndex - 1 + images.length) % images.length)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              <button 
+                className="nav-btn next"
+                onClick={() => setCurrentImageIndex((currentImageIndex + 1) % images.length)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
+            </div>
+            <div className="image-counter">
+              {currentImageIndex + 1} / {images.length}
+            </div>
           </div>
-          <div className="gallery-grid">
-            {[1,2,3].map((idx) => (
-              <div key={idx} className="gallery-item">
-                <img src={field.image || '/images/fields/placeholder.svg'} alt={`${field.field_name} ${idx + 1}`} />
-                {idx === 2 && <div className="gallery-more">Xem thêm</div>}
+          <div className="thumbnail-grid">
+            {images.slice(0, 4).map((img, idx) => (
+              <div 
+                key={idx} 
+                className={`thumbnail ${idx === currentImageIndex ? 'active' : ''}`}
+                onClick={() => setCurrentImageIndex(idx)}
+              >
+                <img src={img} alt={`Ảnh ${idx + 1}`} />
               </div>
             ))}
           </div>
         </div>
+      </section>
 
-        <div className="field-content">
-          {/* Left Column - Booking Form */}
-          <div className="field-booking-section">
-            <h2>Đặt sân theo yêu cầu</h2>
-            
-            <form onSubmit={handleBookingSubmit} className="booking-detail-form">
-              {formErrors.time && <div className="form-error-banner">{formErrors.time}</div>}
-              
-              <div className="form-group">
-                <label htmlFor="name">Họ và tên *</label>
-                <input
-                  id="name"
-                  type="text"
-                  name="name"
-                  value={bookingForm.name}
-                  onChange={handleFormChange}
-                  placeholder="Nhập họ và tên"
-                  className={formErrors.name ? 'error' : ''}
-                />
-                {formErrors.name && <span className="field-error">{formErrors.name}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  name="email"
-                  value={bookingForm.email}
-                  onChange={handleFormChange}
-                  placeholder="Nhập email (không bắt buộc)"
-                  className={formErrors.email ? 'error' : ''}
-                />
-                {formErrors.email && <span className="field-error">{formErrors.email}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="phone">Số điện thoại *</label>
-                <input
-                  id="phone"
-                  type="tel"
-                  name="phone"
-                  value={bookingForm.phone}
-                  onChange={handleFormChange}
-                  placeholder="Nhập số điện thoại"
-                  className={formErrors.phone ? 'error' : ''}
-                />
-                {formErrors.phone && <span className="field-error">{formErrors.phone}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="date">Chọn ngày</label>
-                <input
-                  id="date"
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="note">Ghi chú</label>
-                <textarea
-                  id="note"
-                  name="note"
-                  value={bookingForm.note}
-                  onChange={handleFormChange}
-                  placeholder="Nhập ghi chú (nếu có)"
-                  rows="3"
-                />
-              </div>
-
-              <button type="submit" className="btn-submit-booking" disabled={submitting}>
-                {submitting ? 'Đang xử lý...' : 'Gửi yêu cầu →'}
-              </button>
-              
-              {selectedTime && (
-                <div className="selected-time-info">
-                  <strong>⏰ Đã chọn:</strong> {selectedTime.timeSlot.label} - {selectedTime.timeSlot.time}
+      {/* Main Content */}
+      <div className="detail-container">
+        <div className="detail-layout">
+          {/* Left Column - Field Info */}
+          <div className="detail-main">
+            {/* Header */}
+            <div className="field-header-modern">
+              <div className="header-top">
+                <div className="header-left">
+                  <h1 className="field-title-modern">{field.field_name || field.name}</h1>
+                  <div className="field-meta-modern">
+                    <div className="meta-item-modern">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                      </svg>
+                      <span>{field.location || 'Chưa cập nhật'}</span>
+                    </div>
+                    {field.openTime && (
+                      <div className="meta-item-modern">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <circle cx="12" cy="12" r="10"/>
+                          <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        <span>{field.openTime}</span>
+                      </div>
+                    )}
+                    <div className="meta-item-modern status-open">
+                      <span className="status-dot"></span>
+                      <span>Đang mở cửa</span>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </form>
-
-            {/* Time Slots Calendar - 4 Fixed Shifts */}
-            <div className="time-slots-section">
-              <div className="time-slots-header">
-                <button className="nav-btn">←</button>
-                <span>Lịch đặt sân - 4 ca cố định</span>
-                <button className="nav-btn">→</button>
-              </div>
-
-              <div className="time-slots-grid">
-                {timeSlots.map((day, dayIndex) => (
-                  <div key={dayIndex} className="day-column">
-                    <div className="day-header">
-                      <div className="day-name">{day.day}</div>
-                      <div className="day-date">{day.date}</div>
-                    </div>
-                    <div className="time-list">
-                      {day.shifts.map((shift, shiftIndex) => {
-                        if (!shift) return (
-                          <div key={shiftIndex} className="time-slot empty">
-                            <div className="time-range">-</div>
-                          </div>
-                        )
-                        
-                        return (
-                          <button
-                            key={shiftIndex}
-                            className={`time-slot ${!shift.available ? 'booked' : ''} ${
-                              selectedTime?.dayIndex === dayIndex && 
-                              selectedTime?.shiftIndex === shiftIndex ? 'selected' : ''
-                            }`}
-                            onClick={() => handleTimeSelect(dayIndex, shiftIndex)}
-                            disabled={!shift.available}
-                            title={!shift.available ? 'Khung giờ này đã được đặt' : `${shift.label} - Click để chọn`}
-                          >
-                            <div className="shift-label">{shift.label}</div>
-                            <div className="time-range">{shift.time}</div>
-                            <div className="time-price">
-                              {shift.available ? shift.price : '🔒 Đã đặt'}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
+                <div className="header-right">
+                  <div className="rating-box-modern">
+                    <div className="rating-number">{field.rating || '4.8'}</div>
+                    <div className="rating-stars-modern">⭐⭐⭐⭐⭐</div>
+                    <div className="rating-count">{field.reviews || '128'} đánh giá</div>
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* Right Column - Info & Reviews */}
-          <div className="field-info-section">
-            {/* Thông tin sân */}
-            <div className="info-card">
-              <h3>Thông tin sân</h3>
-              <div className="info-row">
-                <span>Giờ mở cửa:</span>
-                <strong>5h-23h30</strong>
-              </div>
-              <div className="info-row">
-                <span>Số sân thi đấu:</span>
-                <strong>5 Sân</strong>
-              </div>
-              <div className="info-row">
-                <span>Giá sân:</span>
-                <strong>{field.price || 'Liên hệ'}</strong>
-              </div>
-              <div className="info-row">
-                <span>Trạng thái:</span>
-                <strong>{field.status}</strong>
-              </div>
-            </div>
-
-            {/* Dịch vụ tiện ích */}
-            <div className="facilities-card">
-              <h3>Dịch vụ tiện ích</h3>
-              <div className="facilities-grid">
-                {(field.facilities || ['Bãi đỗ xe', 'Căng tin', 'Nước uống', 'Phòng thay đồ']).map((facility, index) => (
-                  <div key={index} className="facility-item">
-                    <span className="facility-icon">✓</span>
-                    <span className="facility-name">{facility}</span>
-                  </div>
-                ))}
+              
+              <div className="header-actions">
+                <button className="action-btn-modern favorite">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                  <span>Yêu thích</span>
+                </button>
+                <button className="action-btn-modern share">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="18" cy="5" r="3"/>
+                    <circle cx="6" cy="12" r="3"/>
+                    <circle cx="18" cy="19" r="3"/>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                  </svg>
+                  <span>Chia sẻ</span>
+                </button>
+                <button className="action-btn-modern chat" onClick={handleChatWithManager}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  <span>Chat ngay</span>
+                </button>
               </div>
             </div>
 
             {/* Tabs */}
-            <div className="tabs-section">
-              <div className="tabs-header">
-                <button 
-                  className={`tab-btn ${activeTab === 'info' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('info')}
-                >
-                  Thông tin
-                </button>
-                <button 
-                  className={`tab-btn ${activeTab === 'reviews' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('reviews')}
-                >
-                  Đánh giá
-                </button>
-                <button 
-                  className={`tab-btn ${activeTab === 'policy' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('policy')}
-                >
-                  Chính sách
-                </button>
-                <button 
-                  className={`tab-btn ${activeTab === 'contact' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('contact')}
-                >
-                  Liên hệ
-                </button>
+            <div className="detail-tabs">
+              <button 
+                className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+                onClick={() => setActiveTab('overview')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                Tổng quan
+              </button>
+              <button 
+                className={`tab-btn ${activeTab === 'facilities' ? 'active' : ''}`}
+                onClick={() => setActiveTab('facilities')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="9" y1="3" x2="9" y2="21"/>
+                </svg>
+                Tiện ích
+              </button>
+              <button 
+                className={`tab-btn ${activeTab === 'reviews' ? 'active' : ''}`}
+                onClick={() => setActiveTab('reviews')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Đánh giá
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="tab-content">
+              {activeTab === 'overview' && (
+                <div className="overview-content">
+                  <div className="content-section">
+                    <h3 className="section-title">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                      </svg>
+                      Mô tả sân bóng
+                    </h3>
+                    <div className="description-text">
+                      {field.description || 'Sân bóng đá chất lượng cao với cỏ nhân tạo thế hệ mới, hệ thống chiếu sáng hiện đại. Phù hợp cho các trận đấu 5v5, 7v7 và 11v11. Khu vực sân rộng rãi, thoáng mát với đầy đủ tiện nghi phục vụ người chơi.'}
+                    </div>
+                  </div>
+
+                  <div className="content-section">
+                    <h3 className="section-title">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                      </svg>
+                      Thông tin chi tiết
+                    </h3>
+                    <div className="info-grid">
+                      <div className="info-item">
+                        <span className="info-label">Loại sân</span>
+                        <span className="info-value">{field.type || 'Sân 5v5, 7v7'}</span>
+                      </div>
+                      <div className="info-item">
+                        <span className="info-label">Kích thước</span>
+                        <span className="info-value">{field.size || '40m x 20m'}</span>
+                      </div>
+                      <div className="info-item">
+                        <span className="info-label">Mặt sân</span>
+                        <span className="info-value">{field.surface || 'Cỏ nhân tạo'}</span>
+                      </div>
+                      <div className="info-item">
+                        <span className="info-label">Giá thuê</span>
+                        <span className="info-value highlight">{formatPrice(field.price)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'facilities' && (
+                <div className="facilities-content">
+                  <h3 className="section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    Tiện ích & Dịch vụ
+                  </h3>
+                  <div className="facilities-grid-modern">
+                    {facilities.map((facility, idx) => (
+                      <div key={idx} className="facility-card-modern">
+                        <div className="facility-icon-modern">✓</div>
+                        <span>{facility}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'reviews' && (
+                <div className="reviews-content">
+                  <div className="reviews-header">
+                    <h3 className="section-title">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                      </svg>
+                      Đánh giá từ khách hàng
+                    </h3>
+                    <div className="rating-summary">
+                      <div className="summary-score">
+                        <div className="score-number">{field.rating || '4.8'}</div>
+                        <div className="score-stars">⭐⭐⭐⭐⭐</div>
+                        <div className="score-text">{reviews.length} đánh giá</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="reviews-list">
+                    {reviews.map(review => (
+                      <div key={review.id} className="review-card-modern">
+                        <div className="review-header">
+                          <div className="reviewer-info">
+                            <div className="reviewer-avatar">{review.avatar}</div>
+                            <div>
+                              <div className="reviewer-name">{review.name}</div>
+                              <div className="review-date">{review.date}</div>
+                            </div>
+                          </div>
+                          <div className="review-rating">
+                            {'⭐'.repeat(review.rating)}
+                          </div>
+                        </div>
+                        <p className="review-comment">{review.comment}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column - Booking Form */}
+          <div className="detail-sidebar">
+            <div className="booking-card-modern">
+              <div className="booking-header">
+                <h3>Đặt sân ngay</h3>
+                <div className="booking-price">
+                  <span className="price-label">Từ</span>
+                  <span className="price-value">{formatPrice(field.price)}</span>
+                  <span className="price-unit">/giờ</span>
+                </div>
               </div>
 
-              <div className="tabs-content">
-                {activeTab === 'info' && (
-                  <div className="info-content">
-                    <h4>Thông tin chung về {field.field_name}</h4>
-                    <p><strong>Địa chỉ:</strong> {field.location}</p>
-                    <p><strong>Giờ mở cửa:</strong> 5:00 - 23:30 hàng ngày</p>
-                    <p><strong>Số sân:</strong> 5 sân thi đấu chất lượng cao</p>
-                    <p><strong>Loại sân:</strong> Sân cỏ nhân tạo thế hệ mới</p>
-                    <br />
-                    <h4>Mô tả</h4>
-                    <p>Sân bóng {field.field_name} là một trong những sân bóng chất lượng cao nhất khu vực. 
-                    Với cơ sở vật chất hiện đại, cỏ nhân tạo thế hệ mới, hệ thống chiếu sáng chuyên nghiệp 
-                    và đội ngũ nhân viên phục vụ tận tình, chúng tôi cam kết mang đến cho bạn những trải nghiệm 
-                    tuyệt vời nhất.</p>
-                    <p>Sân được trang bị đầy đủ tiện nghi: phòng thay đồ rộng rãi, khu vực nghỉ ngơi, 
-                    căng tin với đầy đủ đồ uống và thức ăn nhẹ, bãi đỗ xe rộng rãi và an toàn.</p>
+              <form onSubmit={handleBooking} className="booking-form-modern">
+                {/* Date Selection */}
+                <div className="form-group-modern">
+                  <label className="form-label-modern">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    Chọn ngày
+                  </label>
+                  <input
+                    type="date"
+                    className={`form-input-modern ${formErrors.date ? 'error' : ''}`}
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  {formErrors.date && <span className="error-text">{formErrors.date}</span>}
+                </div>
+
+                {/* Time Slot Selection */}
+                <div className="form-group-modern">
+                  <label className="form-label-modern">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    Chọn khung giờ
+                  </label>
+                  <div className="time-slots-grid">
+                    {timeSlots.map(slot => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        className={`time-slot-btn ${selectedSlot?.id === slot.id ? 'selected' : ''} ${!slot.available ? 'disabled' : ''}`}
+                        onClick={() => slot.available && setSelectedSlot(slot)}
+                        disabled={!slot.available}
+                      >
+                        <span className="slot-icon">{slot.icon || '⏰'}</span>
+                        <div className="slot-info">
+                          <div className="slot-label">{slot.label}</div>
+                          <div className="slot-time">{slot.time}</div>
+                        </div>
+                        {!slot.available && <span className="slot-badge">Đã đặt</span>}
+                      </button>
+                    ))}
                   </div>
-                )}
+                  {formErrors.slot && <span className="error-text">{formErrors.slot}</span>}
+                </div>
 
-                {activeTab === 'reviews' && (
-                  <div className="reviews-content">
-                    <div className="reviews-summary">
-                      <div className="rating-overview">
-                        <div className="rating-big">4.8</div>
-                        <div className="rating-stars-display">⭐⭐⭐⭐⭐</div>
-                        <div className="rating-count">123 đánh giá</div>
-                      </div>
-                      <div className="rating-breakdown">
-                        {[
-                          { star: 5, percent: 85 },
-                          { star: 4, percent: 10 },
-                          { star: 3, percent: 3 },
-                          { star: 2, percent: 1 },
-                          { star: 1, percent: 1 }
-                        ].map(item => (
-                          <div key={item.star} className="rating-bar">
-                            <span>{item.star} ⭐</span>
-                            <div className="bar">
-                              <div className="bar-fill" style={{width: `${item.percent}%`}}></div>
-                            </div>
-                            <span>{item.percent}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                {/* Customer Name */}
+                <div className="form-group-modern">
+                  <label className="form-label-modern">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    Họ và tên
+                  </label>
+                  <input
+                    type="text"
+                    className={`form-input-modern ${formErrors.name ? 'error' : ''}`}
+                    placeholder="Nhập họ và tên của bạn"
+                    value={bookingForm.name}
+                    onChange={(e) => setBookingForm({...bookingForm, name: e.target.value})}
+                  />
+                  {formErrors.name && <span className="error-text">{formErrors.name}</span>}
+                </div>
 
-                    <div className="reviews-list">
-                      <h4>Gửi đánh giá của bạn</h4>
-                      <p>Chia sẻ trải nghiệm của bạn về sân bóng này:</p>
-                      <div className="review-form">
-                        <div className="star-rating-input">
-                          {[1, 2, 3, 4, 5].map(star => (
-                            <button 
-                              key={star} 
-                              type="button"
-                              className="star-btn"
-                              title={`${star} sao`}
-                            >
-                              ⭐
-                            </button>
-                          ))}
-                        </div>
-                        <textarea 
-                          placeholder="Nhận xét của bạn về sân bóng này (dịch vụ, chất lượng sân, tiện nghi...)"
-                          rows="4"
-                        />
-                        <button type="button" className="btn-submit-review">Gửi đánh giá</button>
-                      </div>
-                    </div>
+                {/* Customer Phone */}
+                <div className="form-group-modern">
+                  <label className="form-label-modern">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                    </svg>
+                    Số điện thoại
+                  </label>
+                  <input
+                    type="tel"
+                    className={`form-input-modern ${formErrors.phone ? 'error' : ''}`}
+                    placeholder="Nhập số điện thoại"
+                    value={bookingForm.phone}
+                    onChange={(e) => setBookingForm({...bookingForm, phone: e.target.value})}
+                  />
+                  {formErrors.phone && <span className="error-text">{formErrors.phone}</span>}
+                </div>
 
-                    {reviews.length > 0 && (
-                      <div className="existing-reviews">
-                        <h4>Đánh giá từ khách hàng</h4>
-                        {reviews.map(review => (
-                          <div key={review.id} className="review-item">
-                            <div className="review-header">
-                              <div className="review-user">
-                                <div className="user-avatar">{review.user.charAt(0)}</div>
-                                <div>
-                                  <strong>{review.user}</strong>
-                                  <div className="review-date">{review.date}</div>
-                                </div>
-                              </div>
-                              <div className="review-rating">
-                                {'⭐'.repeat(review.rating)}
-                              </div>
-                            </div>
-                            <div className="review-comment">{review.comment}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Note */}
+                <div className="form-group-modern">
+                  <label className="form-label-modern">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    Ghi chú (tùy chọn)
+                  </label>
+                  <textarea
+                    className="form-textarea-modern"
+                    placeholder="Ghi chú thêm cho việc đặt sân..."
+                    rows="3"
+                    value={bookingForm.note}
+                    onChange={(e) => setBookingForm({...bookingForm, note: e.target.value})}
+                  />
+                </div>
 
-                {activeTab === 'policy' && (
-                  <div className="policy-content">
-                    <h4>Chính sách đặt sân và sử dụng dịch vụ</h4>
-                    
-                    <div className="policy-section">
-                      <h5>1. Chính sách đặt sân</h5>
-                      <ul>
-                        <li>Khách hàng có thể đặt sân trước tối thiểu 2 giờ và tối đa 7 ngày.</li>
-                        <li>Mỗi khung giờ đặt sân là 2 tiếng.</li>
-                        <li>Sau khi đặt sân, vui lòng chờ quản lý xác nhận trong vòng 30 phút.</li>
-                        <li>Nếu không nhận được xác nhận, vui lòng liên hệ hotline: 0123-456-789</li>
-                      </ul>
-                    </div>
+                <button 
+                  type="submit" 
+                  className="submit-btn-modern"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <div className="spinner-small"></div>
+                      <span>Đang xử lý...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                      <span>Xác nhận đặt sân</span>
+                    </>
+                  )}
+                </button>
+              </form>
 
-                    <div className="policy-section">
-                      <h5>2. Chính sách thanh toán</h5>
-                      <ul>
-                        <li>Thanh toán đặt cọc 50% giá trị đặt sân qua chuyển khoản hoặc ví điện tử.</li>
-                        <li>Thanh toán số tiền còn lại khi đến sân.</li>
-                        <li>Chấp nhận thanh toán: Tiền mặt, chuyển khoản, ví điện tử (Momo, ZaloPay, VNPay).</li>
-                        <li>Hóa đơn VAT được xuất theo yêu cầu.</li>
-                      </ul>
-                    </div>
-
-                    <div className="policy-section">
-                      <h5>3. Chính sách hủy/đổi lịch</h5>
-                      <ul>
-                        <li><strong>Hủy trước 24h:</strong> Hoàn lại 100% tiền đặt cọc.</li>
-                        <li><strong>Hủy trước 12h:</strong> Hoàn lại 50% tiền đặt cọc.</li>
-                        <li><strong>Hủy trong vòng 12h:</strong> Không hoàn tiền.</li>
-                        <li><strong>Đổi lịch:</strong> Được đổi lịch miễn phí 1 lần (trước 12h).</li>
-                        <li>Trường hợp bất khả kháng (mưa to, thiên tai): Hoàn 100% hoặc đổi lịch linh hoạt.</li>
-                      </ul>
-                    </div>
-
-                    <div className="policy-section">
-                      <h5>4. Quy định sử dụng sân</h5>
-                      <ul>
-                        <li>Vào sân đúng giờ, trễ quá 15 phút sẽ mất 30 phút của khung giờ đặt.</li>
-                        <li>Không mang đồ ăn, thức uống có cồn vào khu vực sân thi đấu.</li>
-                        <li>Giữ gìn vệ sinh chung, không xả rác bừa bãi.</li>
-                        <li>Sử dụng giày phù hợp cho sân cỏ nhân tạo (không dùng giày đinh sắt).</li>
-                        <li>Bồi thường thiết bị nếu có hư hỏng do lỗi người sử dụng.</li>
-                      </ul>
-                    </div>
-
-                    <div className="policy-section">
-                      <h5>5. Chính sách bảo mật thông tin</h5>
-                      <ul>
-                        <li>Thông tin khách hàng được bảo mật tuyệt đối.</li>
-                        <li>Chỉ sử dụng thông tin để xác nhận đặt sân và liên hệ khi cần thiết.</li>
-                        <li>Không chia sẻ thông tin cho bên thứ ba khi chưa có sự đồng ý.</li>
-                      </ul>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'contact' && (
-                  <div className="contact-content">
-                    <h4>Thông tin liên hệ</h4>
-                    
-                    <div className="contact-info">
-                      <div className="contact-item">
-                        <div className="contact-icon">📍</div>
-                        <div>
-                          <strong>Địa chỉ</strong>
-                          <p>{field.location}</p>
-                        </div>
-                      </div>
-
-                      <div className="contact-item">
-                        <div className="contact-icon">📞</div>
-                        <div>
-                          <strong>Hotline</strong>
-                          <p>0123-456-789 (Hỗ trợ 24/7)</p>
-                        </div>
-                      </div>
-
-                      <div className="contact-item">
-                        <div className="contact-icon">📧</div>
-                        <div>
-                          <strong>Email</strong>
-                          <p>contact@{field.field_name?.toLowerCase().replace(/\s+/g, '')}.com</p>
-                        </div>
-                      </div>
-
-                      <div className="contact-item">
-                        <div className="contact-icon">🕒</div>
-                        <div>
-                          <strong>Giờ làm việc</strong>
-                          <p>5:00 - 23:30 (Hàng ngày)</p>
-                        </div>
-                      </div>
-
-                      <div className="contact-item">
-                        <div className="contact-icon">💬</div>
-                        <div>
-                          <strong>Mạng xã hội</strong>
-                          <p>
-                            Facebook: /sanbong{field.field_name?.toLowerCase().replace(/\s+/g, '')}<br />
-                            Zalo: 0123-456-789
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="contact-form-section">
-                      <h5>Gửi tin nhắn cho chúng tôi</h5>
-                      <form className="contact-form" onSubmit={(e) => e.preventDefault()}>
-                        <div className="form-row">
-                          <div className="form-group">
-                            <label>Họ và tên *</label>
-                            <input type="text" placeholder="Nhập họ và tên" required />
-                          </div>
-                          <div className="form-group">
-                            <label>Số điện thoại *</label>
-                            <input type="tel" placeholder="Nhập số điện thoại" required />
-                          </div>
-                        </div>
-                        <div className="form-group">
-                          <label>Email</label>
-                          <input type="email" placeholder="Nhập email (không bắt buộc)" />
-                        </div>
-                        <div className="form-group">
-                          <label>Nội dung *</label>
-                          <textarea rows="4" placeholder="Nhập nội dung cần liên hệ..." required></textarea>
-                        </div>
-                        <button type="submit" className="btn-send-message">Gửi tin nhắn</button>
-                      </form>
-                    </div>
-
-                    <div className="map-section">
-                      <h5>Bản đồ</h5>
-                      <div className="map-placeholder">
-                        <p>🗺️ Google Maps sẽ hiển thị tại đây</p>
-                        <small>{field.location}</small>
-                      </div>
-                    </div>
-                  </div>
-                )}
+              <div className="booking-guarantee">
+                <div className="guarantee-item">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  <span>Đảm bảo chất lượng</span>
+                </div>
+                <div className="guarantee-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  <span>Thanh toán an toàn</span>
+                </div>
+                <div className="guarantee-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                  <span>Hỗ trợ 24/7</span>
+                </div>
               </div>
             </div>
           </div>

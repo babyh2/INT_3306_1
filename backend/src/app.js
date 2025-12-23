@@ -12,6 +12,7 @@ import adminRoutes from "./routes/admin/adminRoutes.js";
 import managerRoutes from "./routes/manager/managerRoutes.js";
 import userRoutes from "./routes/user/userRoutes.js";
 import authRoutes from "./routes/user/authRoutes.js";
+import chatRoutes from "./routes/chatRoutes.js";
 
 const app = express();
 app.use(cors());
@@ -26,6 +27,7 @@ app.use("/api/manager", managerRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/chat", chatRoutes);
 
 app.get("/", (_, res) => res.json({ 
   name: "football-management-backend",
