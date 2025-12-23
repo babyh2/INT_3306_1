@@ -1,6 +1,7 @@
 import Field from '../../models/Field.js';
 import { Op } from 'sequelize';
 import sequelize from '../../config/database.js';
+import { getAvailableSlots, checkSlotAvailability } from '../../services/user/scheduleService.js';
 
 // GET /api/user/fields
 export const listFields = async (req, res) => {
@@ -28,9 +29,10 @@ export const listFields = async (req, res) => {
       field_name: f.field_name,
       location: f.location || 'Chưa cập nhật',
       status: f.status,
+      rental_price: f.rental_price,
       image: '/images/fields/placeholder.svg',
-      price: 'Liên hệ',
-      pricePerHour: null,
+      price: f.rental_price || 'Liên hệ',
+      pricePerHour: f.rental_price,
       rating: (Math.random() * 1.5 + 3.5).toFixed(1),
       reviews: Math.floor(Math.random() * 200 + 10),
       type: 'Sân 7 người',
@@ -51,80 +53,54 @@ export const listFields = async (req, res) => {
 export const getField = async (req, res) => {
   try {
     const { id } = req.params;
+    const { date } = req.query; // Optional date parameter
+    
     const f = await Field.findOne({ where: { field_id: id } });
     if (!f) return res.status(404).json({ message: 'Field not found' });
 
+    // Get slots for next 7 days or specific date
+    let allSlots = [];
     const now = new Date();
-    const slots = [];
     
-    // Fixed time shifts - 4 shifts per day
-    const timeShifts = [
-      { start: 6, end: 9, label: 'Ca sáng' },      // 6:00 - 9:00
-      { start: 9, end: 12, label: 'Ca trưa' },     // 9:00 - 12:00
-      { start: 14, end: 17, label: 'Ca chiều' },   // 14:00 - 17:00
-      { start: 18, end: 21, label: 'Ca tối' }      // 18:00 - 21:00
-    ];
-    
-    // Generate time slots for next 7 days
-    for (let d = 0; d < 7; d++) {
-      const day = new Date(now);
-      day.setDate(now.getDate() + d);
-      day.setHours(0, 0, 0, 0);
-      
-      for (const shift of timeShifts) {
-        // Create local time for Vietnam (ignore timezone conversion)
-        const start = new Date(day);
-        start.setHours(shift.start, 0, 0, 0);
+    if (date) {
+      // Get slots for specific date
+      const slots = await getAvailableSlots(id, date);
+      allSlots = slots.map(slot => ({
+        start_time: slot.start_time.toISOString(),
+        end_time: slot.end_time.toISOString(),
+        available: slot.available,
+        shift_label: slot.shift_label,
+        booking_status: slot.booking_status
+      }));
+    } else {
+      // Get slots for next 7 days
+      for (let d = 0; d < 7; d++) {
+        const day = new Date(now);
+        day.setDate(now.getDate() + d);
         
-        const end = new Date(day);
-        end.setHours(shift.end, 0, 0, 0);
+        const slots = await getAvailableSlots(id, day);
+        const daySlots = slots.map(slot => ({
+          start_time: slot.start_time.toISOString(),
+          end_time: slot.end_time.toISOString(),
+          available: slot.available,
+          shift_label: slot.shift_label,
+          booking_status: slot.booking_status
+        }));
         
-        slots.push({ 
-          start_time: start.toISOString(), 
-          end_time: end.toISOString(), 
-          available: true,
-          shift_label: shift.label
-        });
+        allSlots = allSlots.concat(daySlots);
       }
     }
-
-    // Check which slots are already booked
-    const [bookings] = await sequelize.query(
-      `SELECT start_time, end_time, status 
-       FROM bookings 
-       WHERE field_id = ? 
-       AND status IN ('pending', 'confirmed')
-       AND end_time > NOW()`,
-      { replacements: [id] }
-    );
-
-    // Mark slots as unavailable if booked
-    slots.forEach(slot => {
-      const slotStart = new Date(slot.start_time);
-      const slotEnd = new Date(slot.end_time);
-      
-      const isBooked = bookings.some(booking => {
-        const bookingStart = new Date(booking.start_time);
-        const bookingEnd = new Date(booking.end_time);
-        
-        // Check if there's any overlap
-        return (slotStart < bookingEnd && slotEnd > bookingStart);
-      });
-      
-      if (isBooked) {
-        slot.available = false;
-      }
-    });
 
     const data = {
       field_id: f.field_id,
       field_name: f.field_name,
       location: f.location,
       status: f.status,
+      rental_price: f.rental_price,
       image: '/images/fields/placeholder.svg',
-      price: 'Liên hệ',
+      price: f.rental_price || 'Liên hệ',
       facilities: ['Bãi đỗ xe', 'Đèn chiếu sáng'],
-      slots
+      slots: allSlots
     };
 
     res.json(data);
@@ -203,6 +179,16 @@ export const createBooking = async (req, res) => {
       return res.status(400).json({ 
         message: 'Field ID does not exist',
         error: 'INVALID_FIELD_ID'
+      });
+    }
+
+    // Check if the time slot is available
+    const slotCheck = await checkSlotAvailability(field_id, new Date(start_time), new Date(end_time));
+    
+    if (!slotCheck.available) {
+      return res.status(400).json({
+        message: slotCheck.reason || 'Khung giờ này không khả dụng',
+        error: 'SLOT_NOT_AVAILABLE'
       });
     }
 

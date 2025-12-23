@@ -95,8 +95,7 @@ export default function FieldsPage() {
 
     // Filter by price range
     filtered = filtered.filter(field => {
-      const priceStr = String(field.price || 0).replace(/[^\d]/g, '');
-      const price = parseInt(priceStr) || 0;
+      const price = parseFloat(field.rental_price || field.price || 0);
       return price >= priceRange[0] && price <= priceRange[1];
     });
 
@@ -113,14 +112,14 @@ export default function FieldsPage() {
     // Sort
     if (sortBy === 'price-low') {
       filtered.sort((a, b) => {
-        const priceA = parseInt(String(a.price || 0).replace(/[^\d]/g, '')) || 0;
-        const priceB = parseInt(String(b.price || 0).replace(/[^\d]/g, '')) || 0;
+        const priceA = parseFloat(a.rental_price || a.price || 0);
+        const priceB = parseFloat(b.rental_price || b.price || 0);
         return priceA - priceB;
       });
     } else if (sortBy === 'price-high') {
       filtered.sort((a, b) => {
-        const priceA = parseInt(String(a.price || 0).replace(/[^\d]/g, '')) || 0;
-        const priceB = parseInt(String(b.price || 0).replace(/[^\d]/g, '')) || 0;
+        const priceA = parseFloat(a.rental_price || a.price || 0);
+        const priceB = parseFloat(b.rental_price || b.price || 0);
         return priceB - priceA;
       });
     } else if (sortBy === 'rating') {
@@ -465,7 +464,7 @@ export default function FieldsPage() {
                     <div className="card-footer">
                       <div className="price-info">
                         <span className="price-label">Giá thuê</span>
-                        <span className="price-amount">{formatPrice(field.price)}</span>
+                        <span className="price-amount">{formatPrice(field.rental_price || field.price)}</span>
                       </div>
                       <button className="book-btn-modern" onClick={() => handleBookField(field)}>
                         <span>Đặt sân ngay</span>

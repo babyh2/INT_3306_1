@@ -27,6 +27,16 @@ export default function FieldDetailPage() {
   const [formErrors, setFormErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
+  // Review form state
+  const [reviewRating, setReviewRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewImages, setReviewImages] = useState([])
+  const [reviewImagePreviews, setReviewImagePreviews] = useState([])
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviews, setReviews] = useState([])
+  const [loadingReviews, setLoadingReviews] = useState(false)
+
   const handleChatWithManager = () => {
     if (!authAPI.isAuthenticated()) {
       if (window.confirm('Bạn cần đăng nhập để chat với manager. Chuyển đến trang đăng nhập?')) {
@@ -49,6 +59,8 @@ export default function FieldDetailPage() {
       try {
         const res = await ApiClient.get(`/user/fields/${id}`)
         setField(res)
+        // Fetch reviews for this field
+        fetchReviews()
       } catch (err) {
         console.error(err)
         setError('Không thể tải thông tin sân bóng')
@@ -58,6 +70,48 @@ export default function FieldDetailPage() {
     }
     fetchField()
   }, [id])
+
+  const fetchReviews = async () => {
+    setLoadingReviews(true)
+    try {
+      const res = await ApiClient.get(`/user/reviews?field_id=${id}`)
+      const reviewsData = Array.isArray(res) ? res : []
+      
+      // Format reviews for display
+      const formattedReviews = reviewsData.map(review => ({
+        id: review.review_id,
+        name: review.customer_name || 'Khách hàng',
+        rating: review.rating,
+        comment: review.comment,
+        date: formatReviewDate(review.created_at),
+        avatar: '👤',
+        images: review.images || []
+      }))
+      
+      setReviews(formattedReviews)
+    } catch (err) {
+      console.error('Error fetching reviews:', err)
+      setReviews([])
+    } finally {
+      setLoadingReviews(false)
+    }
+  }
+
+  const formatReviewDate = (dateString) => {
+    if (!dateString) return 'Gần đây'
+    
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffTime = Math.abs(now - date)
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 0) return 'Hôm nay'
+    if (diffDays === 1) return 'Hôm qua'
+    if (diffDays < 7) return `${diffDays} ngày trước`
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} tuần trước`
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} tháng trước`
+    return `${Math.floor(diffDays / 365)} năm trước`
+  }
 
   // Fetch booked slots when date changes
   useEffect(() => {
@@ -128,17 +182,20 @@ export default function FieldDetailPage() {
     }
 
     if (field?.slots && field.slots.length > 0) {
-      return field.slots.map(slot => {
+      return field.slots.map((slot, index) => {
         const startTime = new Date(slot.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
         const endTime = new Date(slot.end_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
-        const available = !isSlotBooked(startTime, endTime)
+        
+        // Use slot.available from backend if exists, otherwise check bookings
+        const available = slot.available !== undefined ? slot.available : !isSlotBooked(startTime, endTime)
         
         return {
-          id: slot.id,
+          id: slot.schedule_id || `slot-${index}`,
           label: slot.shift_label || 'Ca thuê',
           time: `${startTime} - ${endTime}`,
-          price: slot.price || field.price,
+          price: slot.price || field.rental_price || field.price,
           available: available,
+          booking_status: slot.booking_status || (available ? 'available' : 'booked'),
           start_time: `${selectedDate}T${startTime}`,
           end_time: `${selectedDate}T${endTime}`
         }
@@ -152,7 +209,7 @@ export default function FieldDetailPage() {
       return {
         id: `slot-${i}-${startTime.replace(':', '')}`,
         ...t,
-        price: field?.price || '300000',
+        price: field?.rental_price || field?.price || '300000',
         available: available,
         start_time: `${selectedDate}T${startTime}`,
         end_time: `${selectedDate}T${endTime}`
@@ -191,7 +248,7 @@ export default function FieldDetailPage() {
 
       // Parse price to number, use default if invalid
       let numericPrice = 300000 // Default demo price
-      const priceValue = selectedSlot.price || field.price
+      const priceValue = selectedSlot.price || field.rental_price || field.price
       if (priceValue && typeof priceValue === 'number') {
         numericPrice = priceValue
       } else if (priceValue && typeof priceValue === 'string') {
@@ -223,20 +280,122 @@ export default function FieldDetailPage() {
       }
     } catch (err) {
       console.error(err)
-      const errorMsg = err.response?.data?.message || err.message || 'Đặt sân thất bại. Vui lòng thử lại.'
-      alert(errorMsg)
+      
+      // Handle specific error cases
+      if (err.response?.data?.error === 'SLOT_NOT_AVAILABLE') {
+        alert('⚠️ Khung giờ này không còn khả dụng!\n\nVui lòng chọn khung giờ khác hoặc tải lại trang để cập nhật trạng thái mới nhất.')
+        // Reload field data to get updated slots
+        fetchFieldData()
+      } else {
+        const errorMsg = err.response?.data?.message || err.message || 'Đặt sân thất bại. Vui lòng thử lại.'
+        alert(errorMsg)
+      }
     } finally {
       setSubmitting(false)
     }
   }
 
+  const handleReviewImageChange = (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length + reviewImages.length > 5) {
+      alert('Tối đa 5 hình ảnh')
+      return
+    }
+
+    setReviewImages([...reviewImages, ...files])
+    
+    const newPreviews = files.map(file => URL.createObjectURL(file))
+    setReviewImagePreviews([...reviewImagePreviews, ...newPreviews])
+  }
+
+  const removeReviewImage = (index) => {
+    const newImages = reviewImages.filter((_, i) => i !== index)
+    const newPreviews = reviewImagePreviews.filter((_, i) => i !== index)
+    setReviewImages(newImages)
+    setReviewImagePreviews(newPreviews)
+    URL.revokeObjectURL(reviewImagePreviews[index])
+  }
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault()
+
+    if (!authAPI.isAuthenticated()) {
+      if (window.confirm('Bạn cần đăng nhập để gửi đánh giá. Chuyển đến trang đăng nhập?')) {
+        navigate('/user/login')
+      }
+      return
+    }
+
+    if (reviewRating === 0) {
+      alert('Vui lòng chọn số sao đánh giá')
+      return
+    }
+
+    if (!reviewComment.trim()) {
+      alert('Vui lòng nhập nội dung đánh giá')
+      return
+    }
+
+    setReviewSubmitting(true)
+
+    try {
+      let imageUrls = []
+      
+      if (reviewImages.length > 0) {
+        const formData = new FormData()
+        reviewImages.forEach(image => {
+          formData.append('images', image)
+        })
+        
+        const token = localStorage.getItem('token')
+        const uploadRes = await fetch('http://localhost:5000/api/user/reviews/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        })
+        
+        if (!uploadRes.ok) {
+          throw new Error('Failed to upload images')
+        }
+        
+        const uploadData = await uploadRes.json()
+        imageUrls = uploadData.images || []
+      }
+      
+      const currentUser = authAPI.getCurrentUser()
+      
+      const reviewData = {
+        field_id: Number(id),
+        customer_id: currentUser?.person_id || 1,
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+        images: imageUrls
+      }
+
+      await ApiClient.post('/user/reviews', reviewData)
+      
+      // Reset form
+      setReviewRating(0)
+      setReviewComment('')
+      setReviewImages([])
+      setReviewImagePreviews([])
+      
+      // Reload reviews
+      fetchReviews()
+      
+      alert('Đánh giá của bạn đã được gửi thành công!')
+      setActiveTab('reviews') // Switch to reviews tab
+    } catch (err) {
+      console.error('Failed to submit review:', err)
+      alert('Không thể gửi đánh giá: ' + (err.message || 'Vui lòng thử lại'))
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
+
   const facilities = field?.facilities || ['Bãi đỗ xe', 'Phòng thay đồ', 'Căng tin', 'Wi-Fi', 'Điều hòa', 'Camera an ninh']
-  
-  const reviews = field?.reviews || [
-    { id: 1, name: 'Nguyễn Văn A', rating: 5, comment: 'Sân đẹp, tiện nghi đầy đủ. Tôi sẽ quay lại!', date: '2 ngày trước', avatar: '👤' },
-    { id: 2, name: 'Trần Thị B', rating: 4, comment: 'Chất lượng tốt, giá cả hợp lý.', date: '1 tuần trước', avatar: '👤' },
-    { id: 3, name: 'Lê Văn C', rating: 5, comment: 'Sân rộng rãi, cỏ xanh tốt. Rất hài lòng!', date: '2 tuần trước', avatar: '👤' }
-  ]
 
   if (loading) {
     return (
@@ -462,7 +621,7 @@ export default function FieldDetailPage() {
                       </div>
                       <div className="info-item">
                         <span className="info-label">Giá thuê</span>
-                        <span className="info-value highlight">{formatPrice(field.price)}</span>
+                        <span className="info-value highlight">{formatPrice(field.rental_price || field.price)}</span>
                       </div>
                     </div>
                   </div>
@@ -491,6 +650,96 @@ export default function FieldDetailPage() {
 
               {activeTab === 'reviews' && (
                 <div className="reviews-content">
+                  {/* Write Review Form */}
+                  <div className="write-review-section">
+                    <h3 className="section-title">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                      Viết đánh giá
+                    </h3>
+                    
+                    <form onSubmit={handleReviewSubmit} className="review-form">
+                      <div className="form-group">
+                        <label>Đánh giá của bạn *</label>
+                        <div className="star-rating-input">
+                          {[1, 2, 3, 4, 5].map(star => (
+                            <button
+                              key={star}
+                              type="button"
+                              className={`star-btn ${star <= (hoverRating || reviewRating) ? 'active' : ''}`}
+                              onClick={() => setReviewRating(star)}
+                              onMouseEnter={() => setHoverRating(star)}
+                              onMouseLeave={() => setHoverRating(0)}
+                              title={`${star} sao`}
+                            >
+                              ⭐
+                            </button>
+                          ))}
+                          <span className="rating-text">
+                            {reviewRating > 0 ? `${reviewRating} sao` : 'Chọn số sao'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="review-comment">Nội dung đánh giá *</label>
+                        <textarea
+                          id="review-comment"
+                          rows="4"
+                          placeholder="Chia sẻ trải nghiệm của bạn về sân bóng này..."
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Hình ảnh (tối đa 5 ảnh)</label>
+                        <div className="image-upload-area">
+                          <input
+                            type="file"
+                            id="review-images"
+                            accept="image/*"
+                            multiple
+                            onChange={handleReviewImageChange}
+                            style={{ display: 'none' }}
+                          />
+                          <label htmlFor="review-images" className="upload-btn">
+                            📷 Chọn hình ảnh
+                          </label>
+                          
+                          {reviewImagePreviews.length > 0 && (
+                            <div className="image-preview-grid">
+                              {reviewImagePreviews.map((preview, index) => (
+                                <div key={index} className="preview-item">
+                                  <img src={preview} alt={`Preview ${index + 1}`} />
+                                  <button
+                                    type="button"
+                                    className="remove-image-btn"
+                                    onClick={() => removeReviewImage(index)}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <button 
+                        type="submit" 
+                        className="submit-review-btn"
+                        disabled={reviewSubmitting}
+                      >
+                        {reviewSubmitting ? '⏳ Đang gửi...' : '📤 Gửi đánh giá'}
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Reviews List */}
                   <div className="reviews-header">
                     <h3 className="section-title">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -538,7 +787,7 @@ export default function FieldDetailPage() {
                 <h3>Đặt sân ngay</h3>
                 <div className="booking-price">
                   <span className="price-label">Từ</span>
-                  <span className="price-value">{formatPrice(field.price)}</span>
+                  <span className="price-value">{formatPrice(field.rental_price || field.price)}</span>
                   <span className="price-unit">/giờ</span>
                 </div>
               </div>
@@ -582,13 +831,19 @@ export default function FieldDetailPage() {
                         className={`time-slot-btn ${selectedSlot?.id === slot.id ? 'selected' : ''} ${!slot.available ? 'disabled' : ''}`}
                         onClick={() => slot.available && setSelectedSlot(slot)}
                         disabled={!slot.available}
+                        title={!slot.available ? 'Khung giờ này đã được đặt' : 'Click để chọn khung giờ này'}
                       >
-                        <span className="slot-icon">{slot.icon || '⏰'}</span>
+                        <span className="slot-icon">
+                          {!slot.available ? '🔒' : (selectedSlot?.id === slot.id ? '✅' : '⏰')}
+                        </span>
                         <div className="slot-info">
                           <div className="slot-label">{slot.label}</div>
                           <div className="slot-time">{slot.time}</div>
                         </div>
                         {!slot.available && <span className="slot-badge">Đã đặt</span>}
+                        {slot.available && selectedSlot?.id === slot.id && (
+                          <span className="slot-badge" style={{background: '#10b981', color: '#fff'}}>Đã chọn</span>
+                        )}
                       </button>
                     ))}
                   </div>

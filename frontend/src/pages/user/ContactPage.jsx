@@ -208,7 +208,7 @@ export default function ContactPage() {
                 <div className="quick-links">
                   <a href="/user/fields">🏟️ Đặt sân ngay</a>
                   <a href="/user/policy">📋 Chính sách</a>
-                  <a href="/user/review">⭐ Đánh giá</a>
+
                   <a href="/user">🏠 Trang chủ</a>
                 </div>
               </div>
