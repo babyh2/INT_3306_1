@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import './admin.css';
@@ -14,6 +14,14 @@ const navItems = [
 function AdminLayout() {
     const navigate = useNavigate();
     const currentUser = JSON.parse(localStorage.getItem('user') || '{"person_name":"Admin","role":"admin"}');
+
+    useEffect(() => {
+        // Check if user is admin
+        if (currentUser.role !== 'admin') {
+            alert('Bạn không có quyền truy cập trang này!');
+            navigate('/');
+        }
+    }, [currentUser.role, navigate]);
 
     const handleLogout = () => {
         if (window.confirm('Bạn có chắc muốn đăng xuất?')) {

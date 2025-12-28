@@ -61,7 +61,6 @@ function App() {
           {/* Manager routes */}
           <Route path="/manager" element={<ManagerLayout />}>
             <Route index element={<ManagerDashboardPage />} />
-            <Route path="dashboard" element={<ManagerDashboardPage />} />
             <Route path="bookings" element={<ManagerBookingsPage />} />
             <Route path="fields" element={<ManagerFieldsPage />} />
           </Route>

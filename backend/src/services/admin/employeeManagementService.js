@@ -8,35 +8,68 @@ export const getAllEmployeesService = async (filters = {}, pagination = {}) => {
   const { page = 1, limit = 10, search = '', status = '' } = { ...filters, ...pagination };
   const offset = (page - 1) * limit;
 
-  const whereClause = { role: 'manager' };
-  
+  // Build WHERE clause for search
+  let searchCondition = '';
   if (search) {
-    whereClause[Op.or] = [
-      { person_name: { [Op.like]: `%${search}%` } },
-      { email: { [Op.like]: `%${search}%` } },
-      { phone: { [Op.like]: `%${search}%` } }
-    ];
+    searchCondition = `AND (p.person_name LIKE '%${search}%' OR p.email LIKE '%${search}%' OR p.phone LIKE '%${search}%')`;
   }
   
-  if (status) whereClause.status = status;
+  let statusCondition = '';
+  if (status) {
+    statusCondition = `AND p.status = '${status}'`;
+  }
 
-  const { count, rows } = await User.findAndCountAll({
-    where: whereClause,
-    limit: parseInt(limit),
-    offset: parseInt(offset),
-    order: [['person_id', 'DESC']],
-    attributes: { exclude: ['password'] },
-    include: [
-      {
-        model: Field,
-        as: 'managedFields',
-        attributes: ['field_id', 'field_name', 'location', 'status']
-      }
-    ]
-  });
+  // Get total count
+  const [countResult] = await User.sequelize.query(`
+    SELECT COUNT(*) as count 
+    FROM person p 
+    WHERE p.role = 'manager' ${searchCondition} ${statusCondition}
+  `);
+  const count = countResult[0].count;
+
+  // Get employees with count of their managed fields
+  const [employees] = await User.sequelize.query(`
+    SELECT 
+      p.person_id,
+      p.person_name,
+      p.email,
+      p.phone,
+      p.username,
+      p.role,
+      p.status,
+      p.birthday,
+      p.sex,
+      p.address,
+      p.fieldId,
+      COUNT(f.field_id) as field_count,
+      GROUP_CONCAT(f.field_name SEPARATOR ', ') as field_names
+    FROM person p
+    LEFT JOIN fields f ON f.manager_id = p.person_id
+    WHERE p.role = 'manager' ${searchCondition} ${statusCondition}
+    GROUP BY p.person_id
+    ORDER BY p.person_id DESC
+    LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
+  `);
+
+  // Format employee data
+  const employeesList = employees.map(row => ({
+    person_id: row.person_id,
+    person_name: row.person_name,
+    email: row.email,
+    phone: row.phone,
+    username: row.username,
+    role: row.role,
+    status: row.status,
+    birthday: row.birthday,
+    sex: row.sex,
+    address: row.address,
+    fieldId: row.fieldId,
+    field_count: row.field_count,
+    field_names: row.field_names
+  }));
 
   return {
-    employees: rows,
+    employees: employeesList,
     total: count,
     page: parseInt(page),
     totalPages: Math.ceil(count / limit)
@@ -47,22 +80,52 @@ export const getAllEmployeesService = async (filters = {}, pagination = {}) => {
  * Get employee by ID
  */
 export const getEmployeeByIdService = async (id) => {
-  const employee = await User.findOne({
-    where: {
-      person_id: id,
-      role: 'manager'
-    },
-    attributes: { exclude: ['password'] },
-    include: [
-      {
-        model: Field,
-        as: 'managedFields',
-        attributes: ['field_id', 'field_name', 'location', 'status']
-      }
-    ]
-  });
+  const [employees] = await User.sequelize.query(`
+    SELECT 
+      p.person_id,
+      p.person_name,
+      p.email,
+      p.phone,
+      p.username,
+      p.role,
+      p.status,
+      p.birthday,
+      p.sex,
+      p.address,
+      p.fieldId,
+      f.field_id,
+      f.field_name,
+      f.location,
+      f.status as field_status
+    FROM person p
+    LEFT JOIN fields f ON f.manager_id = p.person_id
+    WHERE p.person_id = ${parseInt(id)} AND p.role = 'manager'
+    LIMIT 1
+  `);
 
-  return employee;
+  if (!employees || employees.length === 0) return null;
+
+  const employee = employees[0];
+  
+  return {
+    person_id: employee.person_id,
+    person_name: employee.person_name,
+    email: employee.email,
+    phone: employee.phone,
+    username: employee.username,
+    role: employee.role,
+    status: employee.status,
+    birthday: employee.birthday,
+    sex: employee.sex,
+    address: employee.address,
+    fieldId: employee.fieldId,
+    field: employee.field_id ? {
+      field_id: employee.field_id,
+      field_name: employee.field_name,
+      location: employee.location,
+      status: employee.field_status
+    } : null
+  };
 };
 
 /**
@@ -98,6 +161,18 @@ export const updateEmployeeService = async (id, employeeData) => {
   // Don't allow password or role change through this method
   delete employeeData.password;
   delete employeeData.role;
+
+  // Clean up empty values
+  Object.keys(employeeData).forEach(key => {
+    if (employeeData[key] === '' || employeeData[key] === 'Invalid date') {
+      employeeData[key] = null;
+    }
+  });
+
+  // Allow fieldId update
+  if (employeeData.fieldId !== undefined) {
+    employeeData.fieldId = employeeData.fieldId || null;
+  }
 
   await employee.update(employeeData);
   const updatedEmployee = employee.toJSON();

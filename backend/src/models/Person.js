@@ -67,7 +67,25 @@ const Person = sequelize.define('Person', {
   indexes: [
     { unique: true, fields: ['email'] },
     { unique: true, fields: ['username'] }
-  ]
+  ],
+  hooks: {
+    beforeCreate: async (person) => {
+      if (person.password) {
+        console.log('Hashing password before create...');
+        const salt = await bcrypt.genSalt(10);
+        person.password = await bcrypt.hash(person.password, salt);
+        console.log('Password hashed successfully');
+      }
+    },
+    beforeUpdate: async (person) => {
+      if (person.changed('password')) {
+        console.log('Hashing password before update...');
+        const salt = await bcrypt.genSalt(10);
+        person.password = await bcrypt.hash(person.password, salt);
+        console.log('Password hashed successfully');
+      }
+    }
+  }
 });
 
 // Instance method to compare password

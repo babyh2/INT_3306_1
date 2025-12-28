@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAllEmployees, createEmployee, updateEmployee, deleteEmployee, assignFieldToEmployee, getEmployeeStats } from '../../api/adminApi';
+import { getAllEmployees, createEmployee, updateEmployee, deleteEmployee, assignFieldToEmployee, getEmployeeStats, getAllFields } from '../../api/adminApi';
 import DataTable from '../../components/admin/DataTable';
 import Modal from '../../components/admin/Modal';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
@@ -19,6 +19,7 @@ function EmployeeManagementPage() {
     const [modalMode, setModalMode] = useState('create');
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, employee: null });
+    const [fields, setFields] = useState([]);
     const [formData, setFormData] = useState({
         person_name: '',
         email: '',
@@ -28,13 +29,24 @@ function EmployeeManagementPage() {
         status: 'active',
         address: '',
         sex: '',
-        birthday: ''
+        birthday: '',
+        fieldId: ''
     });
 
     useEffect(() => {
         fetchEmployees();
         fetchStats();
+        fetchFields();
     }, [currentPage, search, statusFilter]);
+
+    const fetchFields = async () => {
+        try {
+            const response = await getAllFields({ page: 1, limit: 100 });
+            setFields(response.data.data.fields || []);
+        } catch (error) {
+            console.error('Failed to fetch fields:', error);
+        }
+    };
 
     const fetchEmployees = async () => {
         try {
@@ -45,6 +57,7 @@ function EmployeeManagementPage() {
                 search,
                 status: statusFilter
             });
+            console.log('Employees response:', response.data.data.employees);
             setEmployees(response.data.data.employees);
             setTotalPages(response.data.data.totalPages);
         } catch (error) {
@@ -76,7 +89,8 @@ function EmployeeManagementPage() {
                 status: employee.status || 'active',
                 address: employee.address || '',
                 sex: employee.sex || '',
-                birthday: employee.birthday || ''
+                birthday: employee.birthday || '',
+                fieldId: employee.field?.field_id || ''
             });
         } else {
             setFormData({
@@ -88,7 +102,8 @@ function EmployeeManagementPage() {
                 status: 'active',
                 address: '',
                 sex: '',
-                birthday: ''
+                birthday: '',
+                fieldId: ''
             });
         }
         setIsModalOpen(true);
@@ -97,11 +112,39 @@ function EmployeeManagementPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            // Clean up form data
+            const submitData = { ...formData };
+            
+            // Handle empty or invalid dates
+            if (!submitData.birthday || submitData.birthday === 'Invalid date') {
+                delete submitData.birthday;
+            }
+            
+            // Handle empty strings
+            if (!submitData.address) delete submitData.address;
+            if (!submitData.sex) delete submitData.sex;
+            if (!submitData.phone) delete submitData.phone;
+            
+            // Extract fieldId for separate assignment
+            const fieldIdToAssign = submitData.fieldId;
+            delete submitData.fieldId;
+
             if (modalMode === 'create') {
-                await createEmployee(formData);
+                const response = await createEmployee(submitData);
                 showSuccess('Tạo nhân viên thành công');
+                
+                // Assign field if selected
+                if (fieldIdToAssign) {
+                    await assignFieldToEmployee(response.data.data.person_id, fieldIdToAssign);
+                }
             } else {
-                await updateEmployee(selectedEmployee.person_id, formData);
+                await updateEmployee(selectedEmployee.person_id, submitData);
+                
+                // Update field assignment
+                if (fieldIdToAssign) {
+                    await assignFieldToEmployee(selectedEmployee.person_id, fieldIdToAssign);
+                }
+                
                 showSuccess('Cập nhật nhân viên thành công');
             }
             setIsModalOpen(false);
@@ -130,9 +173,18 @@ function EmployeeManagementPage() {
         { key: 'email', label: 'Email', sortable: true },
         { key: 'phone', label: 'Số điện thoại' },
         {
-            key: 'field',
+            key: 'field_count',
             label: 'Sân quản lý',
-            render: (value) => value?.field_name || 'Chưa phân công'
+            render: (value, row) => {
+                if (!value || value === 0) {
+                    return <span style={{ color: '#6b7280' }}>Chưa phân công</span>;
+                }
+                return (
+                    <span style={{ color: '#059669', fontWeight: '500' }} title={row.field_names}>
+                        {value} sân
+                    </span>
+                );
+            }
         },
         {
             key: 'status',
@@ -182,7 +234,10 @@ function EmployeeManagementPage() {
                         <div><label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}>Username *</label><input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} required disabled={modalMode === 'edit'} style={{ width: '100%', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '6px' }} /></div>
                     </div>
                     {modalMode === 'create' && <div style={{ marginBottom: '16px' }}><label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}>Mật khẩu *</label><input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required style={{ width: '100%', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '6px' }} /></div>}
-                    <div style={{ marginBottom: '16px' }}><label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}>Trạng thái</label><select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} style={{ width: '100%', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '6px' }}><option value="active">Hoạt động</option><option value="inactive">Không hoạt động</option></select></div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                        <div><label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}>Trạng thái</label><select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} style={{ width: '100%', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '6px' }}><option value="active">Hoạt động</option><option value="inactive">Không hoạt động</option></select></div>
+                        <div><label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}>Sân quản lý</label><select value={formData.fieldId} onChange={(e) => setFormData({ ...formData, fieldId: e.target.value })} style={{ width: '100%', padding: '8px', border: '1px solid #e5e7eb', borderRadius: '6px' }}><option value="">Chưa phân công</option>{fields.map(field => <option key={field.field_id} value={field.field_id}>{field.field_name}</option>)}</select></div>
+                    </div>
                     <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
                         <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '10px 20px', border: '1px solid #e5e7eb', background: 'white', borderRadius: '8px', cursor: 'pointer' }}>Hủy</button>
                         <button type="submit" style={{ padding: '10px 20px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{modalMode === 'create' ? 'Tạo' : 'Cập nhật'}</button>

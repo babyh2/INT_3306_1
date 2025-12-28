@@ -15,10 +15,15 @@ export default function ManagerLayout() {
       const parsedUser = JSON.parse(userData);
       setUser(parsedUser);
       
-      // Check if user is manager
+      // Check if user is manager (block admin and regular users)
       if (parsedUser.role !== 'manager') {
         alert('Bạn không có quyền truy cập trang này');
-        navigate('/user/login');
+        // Redirect based on role
+        if (parsedUser.role === 'admin') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/user/login');
+        }
       }
     } else {
       navigate('/user/login');
@@ -35,7 +40,6 @@ export default function ManagerLayout() {
 
   const menuItems = [
     { path: '/manager', icon: '📊', label: 'Tổng quan', exact: true },
-    { path: '/manager/dashboard', icon: '📊', label: 'Dashboard' },
     { path: '/manager/bookings', icon: '📋', label: 'Quản lý đơn đặt' },
     { path: '/manager/fields', icon: '🏟️', label: 'Quản lý sân' },
   ];
