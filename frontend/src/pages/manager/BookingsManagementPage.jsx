@@ -103,17 +103,189 @@ export default function ManagerBookingsPage() {
     });
   };
 
-  const getStatusBadge = (status) => {
-    const badges = {
-      pending: { text: 'Chờ duyệt', class: 'badge-pending' },
-      confirmed: { text: 'Đã duyệt', class: 'badge-confirmed' },
-      completed: { text: 'Hoàn thành', class: 'badge-completed' },
-      cancelled: { text: 'Đã hủy', class: 'badge-cancelled' },
-      rejected: { text: 'Từ chối', class: 'badge-rejected' }
-    };
-    const badge = badges[status] || { text: status, class: '' };
-    return <span className={`status-badge ${badge.class}`}>{badge.text}</span>;
-  };
+  const columns = [
+    {
+      key: 'booking_id',
+      label: 'ID',
+      sortable: true,
+      render: (value) => (
+        <span className="badge badge-primary">#{value || 'N/A'}</span>
+      )
+    },
+    {
+      key: 'field_name',
+      label: 'Sân',
+      sortable: true,
+      render: (value, row) => (
+        <div className="field-info">
+          <div className="field-name">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+            </svg>
+            {value || 'N/A'}
+          </div>
+          <div className="field-location">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            {row?.location || 'N/A'}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'customer_name',
+      label: 'Khách hàng',
+      sortable: true,
+      render: (value, row) => (
+        <div className="customer-info">
+          <div className="avatar">
+            {(typeof value === 'string' && value.charAt(0).toUpperCase()) || '?'}
+          </div>
+          <div className="customer-details">
+            <div className="customer-name">{value || 'N/A'}</div>
+            <div className="customer-contact">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+              </svg>
+              {row?.customer_phone || 'N/A'}
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'start_time',
+      label: 'Thời gian',
+      sortable: true,
+      render: (value, row) => (
+        <div className="time-info">
+          <div className="time-row">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span className="time-label">Bắt đầu:</span>
+            <span className="time-value">{value ? formatDateTime(value) : 'N/A'}</span>
+          </div>
+          <div className="time-row">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span className="time-label">Kết thúc:</span>
+            <span className="time-value">{row?.end_time ? formatDateTime(row.end_time) : 'N/A'}</span>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'price',
+      label: 'Giá',
+      sortable: true,
+      render: (value) => (
+        <div className="price-info">
+          <span className="price-value">{(value || 0).toLocaleString('vi-VN')}</span>
+          <span className="price-currency">VNĐ</span>
+        </div>
+      )
+    },
+    {
+      key: 'status',
+      label: 'Trạng thái',
+      sortable: true,
+      render: (value) => {
+        const statusConfig = {
+          pending: { text: 'Chờ duyệt', class: 'badge-warning', icon: '⏳' },
+          confirmed: { text: 'Đã duyệt', class: 'badge-info', icon: '✓' },
+          completed: { text: 'Hoàn thành', class: 'badge-success', icon: '✓' },
+          cancelled: { text: 'Đã hủy', class: 'badge-cancelled', icon: '✗' },
+          rejected: { text: 'Từ chối', class: 'badge-danger', icon: '✗' }
+        };
+        const config = statusConfig[value] || { text: value || 'N/A', class: '', icon: '' };
+        return (
+          <span className={`badge ${config.class}`}>
+            {config.icon} {config.text}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'actions',
+      label: 'Thao tác',
+      render: (value, row) => (
+        <div className="action-buttons">
+          {row?.status === 'pending' && (
+            <>
+              <ConfirmDialog
+                title="Xác nhận duyệt"
+                message="Bạn có chắc chắn muốn duyệt đơn đặt sân này?"
+                onConfirm={() => handleApprove(row?.booking_id)}
+                confirmText="Duyệt"
+                cancelText="Hủy"
+              >
+                <button className="btn-action btn-approve">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Duyệt
+                </button>
+              </ConfirmDialog>
+              <button 
+                onClick={() => handleReject(row)}
+                className="btn-action btn-reject"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+                Từ chối
+              </button>
+            </>
+          )}
+          {row?.status === 'confirmed' && (
+            <>
+              <ConfirmDialog
+                title="Xác nhận hoàn thành"
+                message="Đánh dấu đơn đặt sân này là đã hoàn thành?"
+                onConfirm={() => handleComplete(row?.booking_id)}
+                confirmText="Hoàn thành"
+                cancelText="Hủy"
+              >
+                <button className="btn-action btn-complete">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  Hoàn thành
+                </button>
+              </ConfirmDialog>
+              <ConfirmDialog
+                title="Xác nhận hủy"
+                message="Bạn có chắc chắn muốn hủy đơn đặt sân này?"
+                onConfirm={() => handleCancel(row?.booking_id)}
+                confirmText="Hủy đơn"
+                cancelText="Không"
+              >
+                <button className="btn-action btn-cancel">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="15" y1="9" x2="9" y2="15" />
+                    <line x1="9" y1="9" x2="15" y2="15" />
+                  </svg>
+                  Hủy
+                </button>
+              </ConfirmDialog>
+            </>
+          )}
+          {['completed', 'cancelled', 'rejected'].includes(row?.status) && (
+            <span className="no-action">—</span>
+          )}
+        </div>
+      )
+    }
+  ];
 
   return (
     <div className="bookings-page">

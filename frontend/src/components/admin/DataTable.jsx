@@ -1,7 +1,7 @@
 import React from 'react';
 import './DataTable.css';
 
-export default function DataTable({ columns, data, actions, onSort, sortColumn, sortDirection, isLoading }) {
+export default function DataTable({ columns, data, actions, onSort, sortColumn, sortDirection, isLoading, emptyImage, emptyTitle, emptySubtitle }) {
     const handleSort = (column) => {
         if (column.sortable && onSort) {
             onSort(column.key);
@@ -11,8 +11,16 @@ export default function DataTable({ columns, data, actions, onSort, sortColumn, 
     if (isLoading) {
         return (
             <div className="table-loading">
-                <div className="spinner"></div>
-                <p>Đang tải dữ liệu...</p>
+                <img 
+                    src="/images/admin/loading-animation.svg" 
+                    alt="Loading" 
+                    style={{ width: '200px', height: '150px', marginBottom: '10px' }}
+                />
+                <p className="loading-text" style={{ 
+                    fontSize: '16px', 
+                    color: '#6b7280',
+                    fontWeight: '500'
+                }}>Đang tải dữ liệu...</p>
             </div>
         );
     }
@@ -20,7 +28,21 @@ export default function DataTable({ columns, data, actions, onSort, sortColumn, 
     if (!data || data.length === 0) {
         return (
             <div className="table-empty">
-                <p>Không có dữ liệu</p>
+                <img 
+                    src={emptyImage || "/images/admin/empty-users.svg"} 
+                    alt="No data" 
+                    style={{ width: '250px', height: '200px', marginBottom: '10px' }}
+                />
+                <p className="empty-text" style={{ 
+                    fontSize: '18px', 
+                    fontWeight: '600', 
+                    color: '#374151',
+                    marginBottom: '8px'
+                }}>{emptyTitle || 'Không có dữ liệu'}</p>
+                <p className="empty-subtext" style={{ 
+                    fontSize: '14px', 
+                    color: '#9ca3af'
+                }}>{emptySubtitle || 'Chưa có dữ liệu để hiển thị'}</p>
             </div>
         );
     }
