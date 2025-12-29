@@ -126,7 +126,7 @@ export default function ReviewPage() {
         })
         
         const token = localStorage.getItem('token')
-        const uploadRes = await fetch('http://localhost:5000/api/user/reviews/upload', {
+        const uploadRes = await fetch(`${import.meta.env.VITE_API_URL || 'https://dhpfootball.onrender.com/api'}/user/reviews/upload`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
