@@ -1,5 +1,5 @@
 ﻿import "./config/dotenv.js";
-import "./config/database.js"; // Initialize database connection
+import sequelize from "./config/database.js"; // Initialize database connection
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
@@ -42,5 +42,33 @@ app.get("/", (_, res) => res.json({
     manager: "/api/manager"
   }
 }));
+
+// Health check endpoint with database status
+app.get("/health", (req, res) => {
+  res.json({ 
+    status: "OK", 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+app.get("/api/health", async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.json({ 
+      status: "OK", 
+      database: "Connected",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: "ERROR", 
+      database: "Disconnected",
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 export default app;

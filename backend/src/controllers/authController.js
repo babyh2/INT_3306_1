@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import Person from '../models/Person.js';
+import { Op } from 'sequelize';
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -33,7 +34,7 @@ export const register = async (req, res) => {
     // Check if user already exists
     const existingUser = await Person.findOne({
       where: {
-        [Person.sequelize.Sequelize.Op.or]: [
+        [Op.or]: [
           { username },
           email ? { email } : null
         ].filter(Boolean)
@@ -121,7 +122,7 @@ export const login = async (req, res) => {
     // Find user by username or email
     const user = await Person.findOne({
       where: {
-        [Person.sequelize.Sequelize.Op.or]: [
+        [Op.or]: [
           { username },
           { email: username }
         ]
@@ -169,10 +170,12 @@ export const login = async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Lỗi server khi đăng nhập',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
