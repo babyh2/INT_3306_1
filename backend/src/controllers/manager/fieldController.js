@@ -15,7 +15,7 @@ import {
 export const createField = async (req, res) => {
   try {
     const managerId = req.user.id;
-    const { field_name, location } = req.body;
+    const { field_name, location, rental_price } = req.body;
 
     if (!field_name || !location) {
       return res.status(400).json({
@@ -24,7 +24,7 @@ export const createField = async (req, res) => {
       });
     }
 
-    const newField = await createFieldService(managerId, { field_name, location });
+    const newField = await createFieldService(managerId, { field_name, location, rental_price });
 
     res.status(201).json({
       success: true,

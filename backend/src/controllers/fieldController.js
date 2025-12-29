@@ -216,7 +216,7 @@ export const updateBooking = async (req, res) => {
     const replacements = [];
 
     if (payment_method) {
-      updates.push('note = CONCAT(COALESCE(note, ""), " | Payment: ", ?)');
+      updates.push("note = COALESCE(note, '') || ' | Payment: ' || ?");
       replacements.push(payment_method);
     }
 
@@ -301,7 +301,7 @@ export const rejectBooking = async (req, res) => {
     const noteUpdate = reason ? ` | Lý do từ chối: ${reason}` : "";
 
     await sequelize.query(
-      `UPDATE bookings SET status = 'rejected', note = CONCAT(COALESCE(note, ''), ?) WHERE booking_id = ?`,
+      `UPDATE bookings SET status = 'rejected', note = COALESCE(note, '') || ? WHERE booking_id = ?`,
       { replacements: [noteUpdate, id] }
     );
 

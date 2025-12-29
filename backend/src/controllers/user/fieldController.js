@@ -73,12 +73,18 @@ export const getField = async (req, res) => {
         booking_status: slot.booking_status
       }));
     } else {
-      // Get slots for next 7 days
+      // Get slots for next 7 days in a single batched query
+      const dates = [];
       for (let d = 0; d < 7; d++) {
         const day = new Date(now);
         day.setDate(now.getDate() + d);
-        
-        const slots = await getAvailableSlots(id, day);
+        dates.push(day);
+      }
+      
+      const slotsByDate = await getAvailableSlots(id, dates);
+      
+      // Flatten the grouped results
+      Object.values(slotsByDate).forEach(slots => {
         const daySlots = slots.map(slot => ({
           start_time: slot.start_time.toISOString(),
           end_time: slot.end_time.toISOString(),
@@ -86,9 +92,8 @@ export const getField = async (req, res) => {
           shift_label: slot.shift_label,
           booking_status: slot.booking_status
         }));
-        
         allSlots = allSlots.concat(daySlots);
-      }
+      });
     }
 
     const data = {
@@ -316,7 +321,7 @@ export const updateBooking = async (req, res) => {
     const replacements = [];
 
     if (payment_method) {
-      updates.push('note = CONCAT(COALESCE(note, ""), " | Payment: ", ?)');
+      updates.push("note = COALESCE(note, '') || ' | Payment: ' || ?");
       replacements.push(payment_method);
     }
     
@@ -401,7 +406,7 @@ export const rejectBooking = async (req, res) => {
     const noteUpdate = reason ? ` | Lý do từ chối: ${reason}` : '';
 
     await sequelize.query(
-      `UPDATE bookings SET status = 'rejected', note = CONCAT(COALESCE(note, ''), ?) WHERE booking_id = ?`,
+      `UPDATE bookings SET status = 'rejected', note = COALESCE(note, '') || ? WHERE booking_id = ?`,
       { replacements: [noteUpdate, id] }
     );
 

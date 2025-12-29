@@ -109,18 +109,25 @@ export const updateBookingStatusService = async (managerId, bookingId, status, n
     }
 
     let query = `
-      UPDATE bookings b
-      INNER JOIN fields f ON b.field_id = f.field_id
-      SET b.status = ?
+      UPDATE bookings
+      SET status = ?
+      FROM fields f
+      WHERE bookings.field_id = f.field_id
     `;
     let replacements = [status];
 
     if (note) {
-      query += `, b.note = CONCAT(IFNULL(b.note, ''), ?)`;
-      replacements.push(` | ${note}`);
+      query = `
+        UPDATE bookings
+        SET status = ?,
+            note = COALESCE(note, '') || ?
+        FROM fields f
+        WHERE bookings.field_id = f.field_id
+      `;
+      replacements = [status, ` | ${note}`];
     }
 
-    query += ` WHERE b.booking_id = ? AND f.manager_id = ?`;
+    query += ` AND bookings.booking_id = ? AND f.manager_id = ?`;
     replacements.push(bookingId, managerId);
 
     await sequelize.query(query, { replacements });

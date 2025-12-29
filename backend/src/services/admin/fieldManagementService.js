@@ -87,20 +87,16 @@ export const getFieldByIdService = async (id) => {
  * Create new field
  */
 export const createFieldService = async (fieldData) => {
-  const { field_name, location, manager_id, status = 'active' } = fieldData;
+  const { field_name, location, manager_id, rental_price, status = 'active' } = fieldData;
   
   const [result] = await sequelize.query(
-    `INSERT INTO fields (field_name, location, manager_id, status)
-     VALUES (?, ?, ?, ?)`,
-    { replacements: [field_name, location, manager_id, status] }
+    `INSERT INTO fields (field_name, location, manager_id, rental_price, status)
+     VALUES (?, ?, ?, ?, ?)
+     RETURNING *`,
+    { replacements: [field_name, location, manager_id || null, rental_price || null, status] }
   );
 
-  const [[field]] = await sequelize.query(
-    `SELECT * FROM fields WHERE field_id = ?`,
-    { replacements: [result.insertId] }
-  );
-
-  return field;
+  return result[0];
 };
 
 /**
@@ -170,7 +166,7 @@ export const deleteFieldService = async (id) => {
     `SELECT COUNT(*) as count FROM bookings
      WHERE field_id = ?
      AND status IN ('pending', 'confirmed')
-     AND start_time >= NOW()`,
+     AND start_time >= CURRENT_TIMESTAMP`,
     { replacements: [id] }
   );
 

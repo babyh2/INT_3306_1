@@ -58,6 +58,7 @@ const Person = sequelize.define(
     fieldId: {
       type: DataTypes.INTEGER,
       allowNull: true,
+      field: 'fieldid', // PostgreSQL column name is lowercase
       references: {
         model: "fields",
         key: "field_id",

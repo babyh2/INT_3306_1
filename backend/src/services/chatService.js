@@ -21,7 +21,7 @@ export const getOrCreateChatService = async (userId, managerId) => {
     // Create new chat
     const [result] = await sequelize.query(
       `INSERT INTO chats (user_id, manager_id, created_at, updated_at) 
-       VALUES (?, ?, NOW(), NOW())`,
+       VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       { replacements: [userId, managerId] }
     );
 
@@ -126,13 +126,13 @@ export const sendMessageService = async (chatId, senderId, messageText) => {
   try {
     const [result] = await sequelize.query(
       `INSERT INTO messages (chat_id, sender_id, message_text, is_read, created_at) 
-       VALUES (?, ?, ?, 0, NOW())`,
+       VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)`,
       { replacements: [chatId, senderId, messageText] }
     );
 
     // Update chat's updated_at
     await sequelize.query(
-      `UPDATE chats SET updated_at = NOW() WHERE chat_id = ?`,
+      `UPDATE chats SET updated_at = CURRENT_TIMESTAMP WHERE chat_id = ?`,
       { replacements: [chatId] }
     );
 

@@ -29,20 +29,15 @@ export const getManagerFieldsService = async (managerId) => {
  */
 export const createFieldService = async (managerId, fieldData) => {
   try {
-    const { field_name, location } = fieldData;
+    const { field_name, location, rental_price } = fieldData;
     
     const [result] = await sequelize.query(`
-      INSERT INTO fields (field_name, location, status, manager_id)
-      VALUES (?, ?, 'active', ?)
-    `, { replacements: [field_name, location, managerId] });
+      INSERT INTO fields (field_name, location, rental_price, status, manager_id)
+      VALUES (?, ?, ?, 'active', ?)
+      RETURNING *
+    `, { replacements: [field_name, location, rental_price || null, managerId] });
 
-    return {
-      field_id: result,
-      field_name,
-      location,
-      status: 'active',
-      manager_id: managerId
-    };
+    return result[0];
   } catch (error) {
     console.error('Error in createFieldService:', error);
     throw error;
@@ -167,10 +162,10 @@ export const getFieldStatsService = async (managerId, fieldId) => {
     `, { replacements: [fieldId] });
 
     return {
-      totalBookings: Number(stats[0].totalBookings) || 0,
-      confirmedBookings: Number(stats[0].confirmedBookings) || 0,
-      completedBookings: Number(stats[0].completedBookings) || 0,
-      totalRevenue: parseFloat(stats[0].totalRevenue) || 0
+      totalBookings: Number(stats[0].totalbookings) || 0,
+      confirmedBookings: Number(stats[0].confirmedbookings) || 0,
+      completedBookings: Number(stats[0].completedbookings) || 0,
+      totalRevenue: parseFloat(stats[0].totalrevenue) || 0
     };
   } catch (error) {
     console.error('Error in getFieldStatsService:', error);

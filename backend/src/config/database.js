@@ -13,7 +13,7 @@ const sequelize = process.env.DATABASE_URL
           rejectUnauthorized: false
         }
       },
-      logging: process.env.NODE_ENV === 'development' ? console.log : false,
+      logging: false,
       pool: {
         max: 5,
         min: 0,
@@ -39,7 +39,7 @@ const sequelize = process.env.DATABASE_URL
             rejectUnauthorized: false
           }
         } : {},
-        logging: process.env.NODE_ENV === 'development' ? console.log : false,
+        logging: false,
         pool: {
           max: 5,
           min: 0,

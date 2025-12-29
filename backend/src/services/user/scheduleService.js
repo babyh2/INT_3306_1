@@ -3,15 +3,22 @@ import FieldSchedule from '../../models/FieldSchedule.js';
 import { Op } from 'sequelize';
 
 /**
- * Get available time slots for a field on a specific date
+ * Get available time slots for a field on a specific date or date range
  * Combines field_schedules with bookings to determine availability
+ * @param {string|number} fieldId - Field ID
+ * @param {Date|Array<Date>} dateOrDates - Single date or array of dates
+ * @returns {Object|Array<Object>} Slots for single date or grouped by date
  */
-export const getAvailableSlots = async (fieldId, date) => {
+export const getAvailableSlots = async (fieldId, dateOrDates) => {
   try {
-    const startOfDay = new Date(date);
+    const dates = Array.isArray(dateOrDates) ? dateOrDates : [dateOrDates];
+    const firstDate = dates[0];
+    const lastDate = dates[dates.length - 1];
+    
+    const startOfDay = new Date(firstDate);
     startOfDay.setHours(0, 0, 0, 0);
     
-    const endOfDay = new Date(date);
+    const endOfDay = new Date(lastDate);
     endOfDay.setHours(23, 59, 59, 999);
 
     // Define default time slots (if no schedules exist in DB)
@@ -24,7 +31,7 @@ export const getAvailableSlots = async (fieldId, date) => {
       { start: 19, end: 22, label: 'Ca tối', price_multiplier: 1.3 }
     ];
 
-    // Check if field has custom schedules
+    // Check if field has custom schedules for the entire date range
     const schedules = await FieldSchedule.findAll({
       where: {
         field_id: fieldId,
@@ -36,69 +43,101 @@ export const getAvailableSlots = async (fieldId, date) => {
       order: [['start_time', 'ASC']]
     });
 
-    let slots = [];
-
-    if (schedules.length > 0) {
-      // Use custom schedules from database
-      slots = schedules.map(schedule => ({
-        schedule_id: schedule.schedule_id,
-        start_time: schedule.start_time,
-        end_time: schedule.end_time,
-        is_available: schedule.is_available,
-        shift_label: getShiftLabel(schedule.start_time)
-      }));
-    } else {
-      // Use default slots
-      const day = new Date(date);
-      slots = defaultSlots.map((slot, index) => {
-        const start = new Date(day);
-        start.setHours(slot.start, 0, 0, 0);
-        
-        const end = new Date(day);
-        end.setHours(slot.end, 0, 0, 0);
-        
-        return {
-          schedule_id: `default-${index}`,
-          start_time: start,
-          end_time: end,
-          is_available: true,
-          shift_label: slot.label,
-          price_multiplier: slot.price_multiplier
-        };
-      });
-    }
-
-    // Get all bookings for this field and date range
+    // Get all bookings for this field and date range in a single query
     const bookings = await sequelize.query(
       `SELECT booking_id, start_time, end_time, status 
        FROM bookings 
        WHERE field_id = ? 
-       AND DATE(start_time) = DATE(?)
+       AND start_time >= ? AND start_time < ?
        AND status IN ('pending', 'confirmed')`,
       { 
-        replacements: [fieldId, date],
+        replacements: [fieldId, startOfDay, endOfDay],
         type: sequelize.QueryTypes.SELECT
       }
     );
 
-    // Mark slots as booked if there's any overlap
-    slots.forEach(slot => {
-      const slotStart = new Date(slot.start_time);
-      const slotEnd = new Date(slot.end_time);
+    // Group results by date
+    const slotsByDate = {};
+    
+    dates.forEach(date => {
+      const dateKey = new Date(date).toISOString().split('T')[0];
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
       
-      const isBooked = bookings && bookings.length > 0 && bookings.some(booking => {
-        const bookingStart = new Date(booking.start_time);
-        const bookingEnd = new Date(booking.end_time);
-        
-        // Check for any time overlap
-        return (slotStart < bookingEnd && slotEnd > bookingStart);
+      // Get schedules for this specific day
+      const daySchedules = schedules.filter(s => {
+        const sTime = new Date(s.start_time);
+        return sTime >= dayStart && sTime < dayEnd;
       });
+      
+      let slots = [];
+      
+      if (daySchedules.length > 0) {
+        // Use custom schedules from database
+        slots = daySchedules.map(schedule => ({
+          schedule_id: schedule.schedule_id,
+          start_time: schedule.start_time,
+          end_time: schedule.end_time,
+          is_available: schedule.status === 'active',
+          status: schedule.status,
+          shift_label: getShiftLabel(schedule.start_time)
+        }));
+      } else {
+        // Use default slots
+        slots = defaultSlots.map((slot, index) => {
+          const start = new Date(date);
+          start.setHours(slot.start, 0, 0, 0);
+          
+          const end = new Date(date);
+          end.setHours(slot.end, 0, 0, 0);
+          
+          return {
+            schedule_id: `default-${index}`,
+            start_time: start,
+            end_time: end,
+            is_available: true,
+            shift_label: slot.label,
+            price_multiplier: slot.price_multiplier
+          };
+        });
+      }
+      
+      // Get bookings for this specific day
+      const dayBookings = bookings.filter(b => {
+        const bTime = new Date(b.start_time);
+        return bTime >= dayStart && bTime < dayEnd;
+      });
+      
+      // Mark slots as booked if there's any overlap
+      slots.forEach(slot => {
+        const slotStart = new Date(slot.start_time);
+        const slotEnd = new Date(slot.end_time);
+        
+        const isBooked = dayBookings.some(booking => {
+          const bookingStart = new Date(booking.start_time);
+          const bookingEnd = new Date(booking.end_time);
+          
+          // Check for any time overlap
+          return (slotStart < bookingEnd && slotEnd > bookingStart);
+        });
 
-      slot.available = slot.is_available && !isBooked;
-      slot.booking_status = isBooked ? 'booked' : 'available';
+        const isActive = slot.status ? slot.status === 'active' : slot.is_available !== false;
+        slot.available = isActive && !isBooked;
+        slot.booking_status = isBooked ? 'booked' : 'available';
+      });
+      
+      slotsByDate[dateKey] = slots;
     });
 
-    return slots;
+    // Return single date result or all dates grouped
+    if (!Array.isArray(dateOrDates)) {
+      const dateKey = new Date(firstDate).toISOString().split('T')[0];
+      return slotsByDate[dateKey] || [];
+    }
+    
+    return slotsByDate;
   } catch (error) {
     console.error('Error getting available slots:', error);
     throw error;
@@ -129,7 +168,7 @@ export const checkSlotAvailability = async (fieldId, startTime, endTime) => {
     const scheduleConflict = await FieldSchedule.findOne({
       where: {
         field_id: fieldId,
-        is_available: false,
+        status: 'inactive',
         [Op.or]: [
           {
             start_time: { [Op.lt]: endTime },
@@ -185,7 +224,10 @@ export const updateFieldSchedules = async (fieldId, schedules) => {
     const results = [];
 
     for (const schedule of schedules) {
-      const { start_time, end_time, is_available } = schedule;
+      const { start_time, end_time, status, is_available } = schedule;
+      
+      // Convert is_available to status if needed for backward compatibility
+      const scheduleStatus = status || (is_available === false ? 'inactive' : 'active');
       
       const [newSchedule] = await FieldSchedule.findOrCreate({
         where: {
@@ -194,14 +236,16 @@ export const updateFieldSchedules = async (fieldId, schedules) => {
           end_time
         },
         defaults: {
-          is_available: is_available !== undefined ? is_available : true
+          status: scheduleStatus,
+          date: new Date(start_time),
+          price: schedule.price || 0
         }
       });
 
       if (!newSchedule) {
         // Update existing
         await FieldSchedule.update(
-          { is_available },
+          { status: scheduleStatus },
           {
             where: {
               field_id: fieldId,
