@@ -170,7 +170,7 @@ function UserManagementPage() {
                         fontWeight: 'bold',
                         fontSize: '14px'
                     }}>
-                        {value?.charAt(0)?.toUpperCase() || 'U'}
+                        {(typeof value === 'string' && value.charAt(0)?.toUpperCase()) || 'U'}
                     </span>
                     {value}
                 </span>
