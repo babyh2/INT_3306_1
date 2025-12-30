@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="gradBooking" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect x="80" y="60" width="240" height="180" rx="20" fill="#f3f4f6" opacity="0.5"/>
+  
+  <!-- Calendar -->
+  <g transform="translate(100, 80)">
+    <!-- Calendar header -->
+    <rect x="0" y="0" width="200" height="40" rx="10" fill="url(#gradBooking)" opacity="0.8"/>
+    <circle cx="30" cy="-10" r="8" fill="#ef4444"/>
+    <circle cx="170" cy="-10" r="8" fill="#ef4444"/>
+    
+    <!-- Calendar body -->
+    <rect x="0" y="40" width="200" height="120" rx="10" fill="white" stroke="#e5e7eb" stroke-width="2"/>
+    
+    <!-- Calendar grid -->
+    <line x1="0" y1="70" x2="200" y2="70" stroke="#e5e7eb" stroke-width="1"/>
+    <line x1="0" y1="100" x2="200" y2="100" stroke="#e5e7eb" stroke-width="1"/>
+    <line x1="0" y1="130" x2="200" y2="130" stroke="#e5e7eb" stroke-width="1"/>
+    
+    <!-- Empty slots -->
+    <circle cx="35" cy="85" r="12" fill="#e5e7eb" opacity="0.5"/>
+    <circle cx="100" cy="85" r="12" fill="#e5e7eb" opacity="0.5"/>
+    <circle cx="165" cy="85" r="12" fill="#e5e7eb" opacity="0.5"/>
+    <circle cx="35" cy="115" r="12" fill="#e5e7eb" opacity="0.5"/>
+    <circle cx="100" cy="115" r="12" fill="#e5e7eb" opacity="0.5"/>
+    <circle cx="165" cy="115" r="12" fill="#e5e7eb" opacity="0.5"/>
+  </g>
+  
+  <!-- Bottom text -->
+  <text x="200" y="260" text-anchor="middle" font-size="18" fill="#6b7280" font-family="Arial, sans-serif">
+    Chưa có đặt sân
+  </text>
+</svg>

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="gradStat2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Users icon animated -->
+  <g transform="translate(100, 100)">
+    <!-- User 1 -->
+    <circle cx="-30" cy="-10" r="15" fill="url(#gradStat2)" opacity="0.8">
+      <animate attributeName="cy" values="-10;-15;-10" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <path d="M -30 10 Q -45 10, -45 25 L -45 35 L -15 35 L -15 25 Q -15 10, -30 10" 
+          fill="url(#gradStat2)" opacity="0.6">
+      <animate attributeName="opacity" values="0.6;0.8;0.6" dur="2s" repeatCount="indefinite"/>
+    </path>
+    
+    <!-- User 2 -->
+    <circle cx="0" cy="-10" r="15" fill="url(#gradStat2)" opacity="0.9">
+      <animate attributeName="cy" values="-10;-15;-10" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+    </circle>
+    <path d="M 0 10 Q -15 10, -15 25 L -15 35 L 15 35 L 15 25 Q 15 10, 0 10" 
+          fill="url(#gradStat2)" opacity="0.7">
+      <animate attributeName="opacity" values="0.7;0.9;0.7" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+    </path>
+    
+    <!-- User 3 -->
+    <circle cx="30" cy="-10" r="15" fill="url(#gradStat2)" opacity="0.8">
+      <animate attributeName="cy" values="-10;-15;-10" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+    </circle>
+    <path d="M 30 10 Q 15 10, 15 25 L 15 35 L 45 35 L 45 25 Q 45 10, 30 10" 
+          fill="url(#gradStat2)" opacity="0.6">
+      <animate attributeName="opacity" values="0.6;0.8;0.6" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+    </path>
+  </g>
+</svg>
