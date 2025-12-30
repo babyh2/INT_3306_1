@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="gradEmpty" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#d97706;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circles -->
+  <circle cx="200" cy="150" r="120" fill="#fef3c7" opacity="0.3"/>
+  <circle cx="200" cy="150" r="90" fill="#fde68a" opacity="0.3"/>
+  
+  <!-- Employee illustration -->
+  <g transform="translate(200, 130)">
+    <!-- Head -->
+    <circle cx="0" cy="0" r="30" fill="url(#gradEmpty)" opacity="0.8"/>
+    
+    <!-- Hair -->
+    <path d="M -25,-15 Q -30,-25 -20,-30 Q -10,-35 0,-32 Q 10,-35 20,-30 Q 30,-25 25,-15" 
+          fill="#78350f" opacity="0.8"/>
+    
+    <!-- Body with uniform -->
+    <path d="M -35 40 Q -35 25, 0 25 Q 35 25, 35 40 L 35 70 Q 35 80, 25 80 L -25 80 Q -35 80, -35 70 Z" 
+          fill="url(#gradEmpty)" opacity="0.7"/>
+    
+    <!-- Badge -->
+    <circle cx="0" cy="50" r="8" fill="#fbbf24"/>
+    <text x="0" y="54" text-anchor="middle" font-size="10" fill="white" font-weight="bold">✓</text>
+    
+    <!-- Arms -->
+    <ellipse cx="-42" cy="45" rx="10" ry="30" fill="url(#gradEmpty)" opacity="0.6"/>
+    <ellipse cx="42" cy="45" rx="10" ry="30" fill="url(#gradEmpty)" opacity="0.6"/>
+    
+    <!-- Clipboard in hand -->
+    <g transform="translate(50, 60)">
+      <rect x="0" y="0" width="20" height="25" rx="2" fill="white" stroke="#d97706" stroke-width="2"/>
+      <rect x="8" y="-3" width="4" height="6" rx="1" fill="#d97706"/>
+      <line x1="3" y1="8" x2="17" y2="8" stroke="#d97706" stroke-width="1"/>
+      <line x1="3" y1="12" x2="17" y2="12" stroke="#d97706" stroke-width="1"/>
+      <line x1="3" y1="16" x2="17" y2="16" stroke="#d97706" stroke-width="1"/>
+    </g>
+  </g>
+  
+  <!-- Bottom text -->
+  <text x="200" y="260" text-anchor="middle" font-size="18" fill="#92400e" font-family="Arial, sans-serif" font-weight="600">
+    Chưa có nhân viên
+  </text>
+</svg>

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="gradStat1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Circular progress -->
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#e5e7eb" stroke-width="12"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="url(#gradStat1)" stroke-width="12" 
+          stroke-dasharray="502" stroke-dashoffset="125" 
+          transform="rotate(-90 100 100)" stroke-linecap="round">
+    <animate attributeName="stroke-dashoffset" 
+             values="502;125;502" 
+             dur="3s" 
+             repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Icon -->
+  <text x="100" y="115" text-anchor="middle" font-size="50" fill="#10b981">📈</text>
+</svg>
