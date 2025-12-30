@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="gradLoad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Soccer ball with animation -->
+  <g transform="translate(200, 150)">
+    <!-- Ball shadow -->
+    <ellipse cx="0" cy="80" rx="40" ry="10" fill="#000" opacity="0.1">
+      <animate attributeName="rx" values="40;45;40" dur="1s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.1;0.05;0.1" dur="1s" repeatCount="indefinite"/>
+    </ellipse>
+    
+    <!-- Ball -->
+    <circle cx="0" cy="0" r="50" fill="url(#gradLoad)" opacity="0.9">
+      <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    
+    <!-- Ball pattern -->
+    <g opacity="0.6">
+      <polygon points="0,-20 -15,-5 -15,10 0,20 15,10 15,-5" fill="white"/>
+      <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="2s" repeatCount="indefinite"/>
+    </g>
+    
+    <!-- Bounce animation -->
+    <animateTransform attributeName="transform" type="translate" values="200,150; 200,120; 200,150" dur="1s" repeatCount="indefinite" additive="replace"/>
+  </g>
+  
+  <!-- Loading text -->
+  <text x="200" y="260" text-anchor="middle" font-size="18" fill="#6b7280" font-family="Arial, sans-serif">
+    Đang tải dữ liệu...
+    <animate attributeName="opacity" values="1;0.5;1" dur="1.5s" repeatCount="indefinite"/>
+  </text>
+</svg>

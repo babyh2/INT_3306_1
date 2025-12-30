@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <defs>
+    <linearGradient id="gradBanner" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="gradField" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:0.3" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect x="0" y="0" width="800" height="400" fill="url(#gradBanner)"/>
+  
+  <!-- Decorative circles -->
+  <circle cx="100" cy="80" r="60" fill="white" opacity="0.1">
+    <animate attributeName="r" values="60;70;60" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="700" cy="320" r="80" fill="white" opacity="0.08">
+    <animate attributeName="r" values="80;90;80" dur="4s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="650" cy="100" r="40" fill="white" opacity="0.12">
+    <animate attributeName="r" values="40;50;40" dur="3.5s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Soccer field -->
+  <g transform="translate(550, 180)">
+    <rect x="0" y="0" width="200" height="140" rx="8" fill="url(#gradField)" stroke="white" stroke-width="2" opacity="0.6"/>
+    <line x1="100" y1="0" x2="100" y2="140" stroke="white" stroke-width="2" opacity="0.4"/>
+    <circle cx="100" cy="70" r="20" fill="none" stroke="white" stroke-width="2" opacity="0.4"/>
+    <circle cx="100" cy="70" r="2" fill="white" opacity="0.4"/>
+  </g>
+  
+  <!-- Soccer ball -->
+  <g transform="translate(480, 250)">
+    <circle cx="0" cy="0" r="30" fill="white" opacity="0.9">
+      <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="4s" repeatCount="indefinite"/>
+    </circle>
+    <polygon points="0,-12 -10,-3 -10,8 0,15 10,8 10,-3" fill="#667eea" opacity="0.5">
+      <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="4s" repeatCount="indefinite"/>
+    </polygon>
+  </g>
+  
+  <!-- Text content -->
+  <text x="80" y="180" font-size="48" fill="white" font-family="Arial, sans-serif" font-weight="bold">
+    Chào mừng đến
+  </text>
+  <text x="80" y="230" font-size="56" fill="white" font-family="Arial, sans-serif" font-weight="bold">
+    Trang Quản Trị
+  </text>
+  <text x="80" y="270" font-size="28" fill="white" font-family="Arial, sans-serif" opacity="0.9">
+    Quản lý sân bóng hiệu quả
+  </text>
+  
+  <!-- Stats icons floating -->
+  <g opacity="0.8">
+    <circle cx="120" cy="320" r="25" fill="white" opacity="0.2">
+      <animate attributeName="cy" values="320;310;320" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <text x="120" y="330" text-anchor="middle" font-size="24">👥</text>
+    
+    <circle cx="200" cy="320" r="25" fill="white" opacity="0.2">
+      <animate attributeName="cy" values="320;310;320" dur="2.2s" repeatCount="indefinite"/>
+    </circle>
+    <text x="200" y="330" text-anchor="middle" font-size="24">⚽</text>
+    
+    <circle cx="280" cy="320" r="25" fill="white" opacity="0.2">
+      <animate attributeName="cy" values="320;310;320" dur="2.4s" repeatCount="indefinite"/>
+    </circle>
+    <text x="280" y="330" text-anchor="middle" font-size="24">📅</text>
+    
+    <circle cx="360" cy="320" r="25" fill="white" opacity="0.2">
+      <animate attributeName="cy" values="320;310;320" dur="2.6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="360" y="330" text-anchor="middle" font-size="24">💰</text>
+  </g>
+</svg>
