@@ -1,21 +1,22 @@
 .role-switcher {
   position: fixed;
-  top: 100px;
-  right: 30px;
+  top: 20px;
+  right: 20px;
   z-index: 999;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   align-items: flex-end;
+  max-width: 280px;
 }
 
 .role-switcher-container {
   display: flex;
-  gap: 8px;
-  background: white;
-  padding: 10px 12px;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(30, 58, 138, 0.1);
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(0, 0, 0, 0.05);
 }
@@ -23,24 +24,26 @@
 .role-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
+  gap: 6px;
+  padding: 8px 12px;
   border: 2px solid transparent;
   background: #f9fafb;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #374151;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   position: relative;
   white-space: nowrap;
+  min-width: 70px;
+  justify-content: center;
 }
 
 .role-btn:not(.disabled):hover {
   background: var(--role-color);
   color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .role-btn.active {
@@ -74,12 +77,12 @@
 }
 
 .role-icon {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
 }
 
 .role-label {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .active-indicator {
@@ -101,27 +104,27 @@
 .current-user-info {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: white;
-  padding: 8px 16px;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px 12px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .user-role-badge {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: white;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
   letter-spacing: 0.5px;
 }
 
 .user-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #374151;
-  max-width: 150px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -132,35 +135,43 @@
   .role-switcher {
     top: 10px;
     right: 10px;
+    max-width: none;
   }
 
   .role-switcher-container {
     flex-direction: column;
     padding: 6px;
+    gap: 4px;
   }
 
   .role-btn {
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 6px 10px;
+    font-size: 11px;
+    min-width: 60px;
+    gap: 4px;
   }
 
   .role-icon {
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .role-label {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .current-user-info {
-    flex-direction: column;
+    padding: 4px 10px;
     gap: 6px;
-    padding: 6px 12px;
   }
 
   .user-name {
-    max-width: 120px;
-    font-size: 12px;
+    max-width: 100px;
+    font-size: 11px;
+  }
+
+  .user-role-badge {
+    font-size: 8px;
+    padding: 2px 5px;
   }
 }
 

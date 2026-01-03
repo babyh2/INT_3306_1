@@ -17,6 +17,9 @@ export default function ManagerBookingsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
   const [sortConfig, setSortConfig] = useState({ key: 'booking_id', direction: 'desc' });
@@ -44,10 +47,16 @@ export default function ManagerBookingsPage() {
     }
   };
 
-  const handleApprove = async (bookingId) => {
+  const handleApprove = (booking) => {
+    setSelectedBooking(booking);
+    setShowApproveModal(true);
+  };
+
+  const confirmApprove = async () => {
     try {
-      await approveBooking(bookingId);
+      await approveBooking(selectedBooking.booking_id);
       showToast('Đã duyệt đơn đặt sân thành công!', 'success');
+      setShowApproveModal(false);
       fetchBookings();
     } catch (err) {
       console.error('Failed to approve booking:', err);
@@ -73,10 +82,16 @@ export default function ManagerBookingsPage() {
     }
   };
 
-  const handleComplete = async (bookingId) => {
+  const handleComplete = (booking) => {
+    setSelectedBooking(booking);
+    setShowCompleteModal(true);
+  };
+
+  const confirmComplete = async () => {
     try {
-      await completeBooking(bookingId);
+      await completeBooking(selectedBooking.booking_id);
       showToast('Đã đánh dấu hoàn thành!', 'success');
+      setShowCompleteModal(false);
       fetchBookings();
     } catch (err) {
       console.error('Failed to complete booking:', err);
@@ -84,10 +99,16 @@ export default function ManagerBookingsPage() {
     }
   };
 
-  const handleCancel = async (bookingId) => {
+  const handleCancel = (booking) => {
+    setSelectedBooking(booking);
+    setShowCancelModal(true);
+  };
+
+  const confirmCancel = async () => {
     try {
-      await cancelBooking(bookingId, '');
+      await cancelBooking(selectedBooking.booking_id, '');
       showToast('Đã hủy đơn đặt sân!', 'info');
+      setShowCancelModal(false);
       fetchBookings();
     } catch (err) {
       console.error('Failed to cancel booking:', err);
@@ -221,20 +242,15 @@ export default function ManagerBookingsPage() {
         <div className="action-buttons">
           {row?.status === 'pending' && (
             <>
-              <ConfirmDialog
-                title="Xác nhận duyệt"
-                message="Bạn có chắc chắn muốn duyệt đơn đặt sân này?"
-                onConfirm={() => handleApprove(row?.booking_id)}
-                confirmText="Duyệt"
-                cancelText="Hủy"
+              <button 
+                onClick={() => handleApprove(row)}
+                className="btn-action btn-approve"
               >
-                <button className="btn-action btn-approve">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Duyệt
-                </button>
-              </ConfirmDialog>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Duyệt
+              </button>
               <button 
                 onClick={() => handleReject(row)}
                 className="btn-action btn-reject"
@@ -249,37 +265,27 @@ export default function ManagerBookingsPage() {
           )}
           {row?.status === 'confirmed' && (
             <>
-              <ConfirmDialog
-                title="Xác nhận hoàn thành"
-                message="Đánh dấu đơn đặt sân này là đã hoàn thành?"
-                onConfirm={() => handleComplete(row?.booking_id)}
-                confirmText="Hoàn thành"
-                cancelText="Hủy"
+              <button 
+                onClick={() => handleComplete(row)}
+                className="btn-action btn-complete"
               >
-                <button className="btn-action btn-complete">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                    <polyline points="22 4 12 14.01 9 11.01" />
-                  </svg>
-                  Hoàn thành
-                </button>
-              </ConfirmDialog>
-              <ConfirmDialog
-                title="Xác nhận hủy"
-                message="Bạn có chắc chắn muốn hủy đơn đặt sân này?"
-                onConfirm={() => handleCancel(row?.booking_id)}
-                confirmText="Hủy đơn"
-                cancelText="Không"
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                Hoàn thành
+              </button>
+              <button 
+                onClick={() => handleCancel(row)}
+                className="btn-action btn-cancel"
               >
-                <button className="btn-action btn-cancel">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="15" y1="9" x2="9" y2="15" />
-                    <line x1="9" y1="9" x2="15" y2="15" />
-                  </svg>
-                  Hủy
-                </button>
-              </ConfirmDialog>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+                Hủy
+              </button>
             </>
           )}
           {['completed', 'cancelled', 'rejected'].includes(row?.status) && (
@@ -375,6 +381,42 @@ export default function ManagerBookingsPage() {
           </div>
         </div>
       )}
+
+      {/* Approve Modal */}
+      <ConfirmDialog
+        isOpen={showApproveModal}
+        onClose={() => setShowApproveModal(false)}
+        onConfirm={confirmApprove}
+        title="Xác nhận duyệt"
+        message="Bạn có chắc chắn muốn duyệt đơn đặt sân này?"
+        confirmText="Duyệt"
+        cancelText="Hủy"
+        type="info"
+      />
+
+      {/* Complete Modal */}
+      <ConfirmDialog
+        isOpen={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        onConfirm={confirmComplete}
+        title="Xác nhận hoàn thành"
+        message="Đánh dấu đơn đặt sân này là đã hoàn thành?"
+        confirmText="Hoàn thành"
+        cancelText="Hủy"
+        type="info"
+      />
+
+      {/* Cancel Modal */}
+      <ConfirmDialog
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={confirmCancel}
+        title="Xác nhận hủy"
+        message="Bạn có chắc chắn muốn hủy đơn đặt sân này?"
+        confirmText="Hủy đơn"
+        cancelText="Không"
+        type="danger"
+      />
 
       {toast.show && (
         <Toast
